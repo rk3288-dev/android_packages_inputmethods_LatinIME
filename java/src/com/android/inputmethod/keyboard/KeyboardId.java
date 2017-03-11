@@ -68,8 +68,10 @@ public final class KeyboardId {
     public final int mHeight;
     public final int mMode;
     public final int mElementId;
-    public final EditorInfo mEditorInfo;
+    private final EditorInfo mEditorInfo;
     public final boolean mClobberSettingsKey;
+    public final boolean mShortcutKeyEnabled;
+    public final boolean mShortcutKeyOnSymbols;
     public final boolean mLanguageSwitchKeyEnabled;
     public final String mCustomActionLabel;
     public final boolean mHasShortcutKey;
@@ -85,10 +87,17 @@ public final class KeyboardId {
         mElementId = elementId;
         mEditorInfo = params.mEditorInfo;
         mClobberSettingsKey = params.mNoSettingsKey;
+        mShortcutKeyEnabled = params.mVoiceKeyEnabled;
+        mShortcutKeyOnSymbols = mShortcutKeyEnabled && !params.mVoiceKeyOnMain;
         mLanguageSwitchKeyEnabled = params.mLanguageSwitchKeyEnabled;
         mCustomActionLabel = (mEditorInfo.actionLabel != null)
                 ? mEditorInfo.actionLabel.toString() : null;
-        mHasShortcutKey = params.mVoiceInputKeyEnabled;
+        final boolean alphabetMayHaveShortcutKey = isAlphabetKeyboard(elementId)
+                && !mShortcutKeyOnSymbols;
+        final boolean symbolsMayHaveShortcutKey = (elementId == KeyboardId.ELEMENT_SYMBOLS)
+                && mShortcutKeyOnSymbols;
+        mHasShortcutKey = mShortcutKeyEnabled
+                && (alphabetMayHaveShortcutKey || symbolsMayHaveShortcutKey);
 
         mHashCode = computeHashCode(this);
     }
@@ -101,7 +110,8 @@ public final class KeyboardId {
                 id.mHeight,
                 id.passwordInput(),
                 id.mClobberSettingsKey,
-                id.mHasShortcutKey,
+                id.mShortcutKeyEnabled,
+                id.mShortcutKeyOnSymbols,
                 id.mLanguageSwitchKeyEnabled,
                 id.isMultiLine(),
                 id.imeAction(),
@@ -121,7 +131,8 @@ public final class KeyboardId {
                 && other.mHeight == mHeight
                 && other.passwordInput() == passwordInput()
                 && other.mClobberSettingsKey == mClobberSettingsKey
-                && other.mHasShortcutKey == mHasShortcutKey
+                && other.mShortcutKeyEnabled == mShortcutKeyEnabled
+                && other.mShortcutKeyOnSymbols == mShortcutKeyOnSymbols
                 && other.mLanguageSwitchKeyEnabled == mLanguageSwitchKeyEnabled
                 && other.isMultiLine() == isMultiLine()
                 && other.imeAction() == imeAction()
@@ -175,19 +186,21 @@ public final class KeyboardId {
 
     @Override
     public String toString() {
-        return String.format(Locale.ROOT, "[%s %s:%s %dx%d %s %s%s%s%s%s%s%s%s]",
+        return String.format(Locale.ROOT, "[%s %s:%s %dx%d %s %s %s%s%s%s%s%s%s%s%s]",
                 elementIdToName(mElementId),
                 mLocale, mSubtype.getExtraValueOf(KEYBOARD_LAYOUT_SET),
                 mWidth, mHeight,
                 modeName(mMode),
-                actionName(imeAction()),
-                (navigateNext() ? " navigateNext" : ""),
-                (navigatePrevious() ? " navigatePrevious" : ""),
+                imeAction(),
+                (navigateNext() ? "navigateNext" : ""),
+                (navigatePrevious() ? "navigatePrevious" : ""),
                 (mClobberSettingsKey ? " clobberSettingsKey" : ""),
                 (passwordInput() ? " passwordInput" : ""),
+                (mShortcutKeyEnabled ? " shortcutKeyEnabled" : ""),
+                (mShortcutKeyOnSymbols ? " shortcutKeyOnSymbols" : ""),
                 (mHasShortcutKey ? " hasShortcutKey" : ""),
                 (mLanguageSwitchKeyEnabled ? " languageSwitchKeyEnabled" : ""),
-                (isMultiLine() ? " isMultiLine" : "")
+                (isMultiLine() ? "isMultiLine" : "")
         );
     }
 

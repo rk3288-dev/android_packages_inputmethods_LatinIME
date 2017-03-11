@@ -29,6 +29,7 @@ import android.view.View;
 import android.widget.ProgressBar;
 
 public class DictionaryDownloadProgressBar extends ProgressBar {
+    @SuppressWarnings("unused")
     private static final String TAG = DictionaryDownloadProgressBar.class.getSimpleName();
     private static final int NOT_A_DOWNLOADMANAGER_PENDING_ID = 0;
 
@@ -99,28 +100,32 @@ public class DictionaryDownloadProgressBar extends ProgressBar {
 
     @Override
     protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
         mIsCurrentlyAttachedToWindow = false;
         updateReporterThreadRunningStatusAccordingToVisibility();
     }
 
     private class UpdaterThread extends Thread {
         private final static int REPORT_PERIOD = 150; // how often to report progress, in ms
-        final DownloadManagerWrapper mDownloadManagerWrapper;
+        final DownloadManager mDownloadManager;
         final int mId;
         public UpdaterThread(final Context context, final int id) {
             super();
-            mDownloadManagerWrapper = new DownloadManagerWrapper(context);
+            mDownloadManager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
             mId = id;
         }
         @Override
         public void run() {
             try {
+                // It's almost impossible that mDownloadManager is null (it would mean it has been
+                // disabled between pressing the 'install' button and displaying the progress
+                // bar), but just in case.
+                if (null == mDownloadManager) return;
                 final UpdateHelper updateHelper = new UpdateHelper();
                 final Query query = new Query().setFilterById(mId);
+                int lastProgress = 0;
                 setIndeterminate(true);
                 while (!isInterrupted()) {
-                    final Cursor cursor = mDownloadManagerWrapper.query(query);
+                    final Cursor cursor = mDownloadManager.query(query);
                     if (null == cursor) {
                         // Can't contact DownloadManager: this should never happen.
                         return;

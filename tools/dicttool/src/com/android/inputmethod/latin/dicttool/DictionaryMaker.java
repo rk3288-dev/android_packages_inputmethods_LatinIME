@@ -17,32 +17,27 @@
 package com.android.inputmethod.latin.dicttool;
 
 import com.android.inputmethod.latin.makedict.BinaryDictDecoderUtils;
-import com.android.inputmethod.latin.makedict.BinaryDictIOUtils;
 import com.android.inputmethod.latin.makedict.DictDecoder;
 import com.android.inputmethod.latin.makedict.DictEncoder;
 import com.android.inputmethod.latin.makedict.FormatSpec;
 import com.android.inputmethod.latin.makedict.FusionDictionary;
 import com.android.inputmethod.latin.makedict.MakedictLog;
 import com.android.inputmethod.latin.makedict.UnsupportedFormatException;
-import com.android.inputmethod.latin.makedict.Ver2DictEncoder;
+import com.android.inputmethod.latin.makedict.Ver3DictEncoder;
 import com.android.inputmethod.latin.makedict.Ver4DictEncoder;
 
-import org.xml.sax.SAXException;
-
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.LinkedList;
 
 import javax.xml.parsers.ParserConfigurationException;
+
+import org.xml.sax.SAXException;
 
 /**
  * Main class/method for DictionaryMaker.
@@ -51,6 +46,7 @@ public class DictionaryMaker {
 
     static class Arguments {
         private static final String OPTION_VERSION_2 = "-2";
+        private static final String OPTION_VERSION_3 = "-3";
         private static final String OPTION_VERSION_4 = "-4";
         private static final String OPTION_INPUT_SOURCE = "-s";
         private static final String OPTION_INPUT_BIGRAM_XML = "-b";
@@ -142,7 +138,7 @@ public class DictionaryMaker {
         }
 
         public Arguments(String[] argsArray) throws IOException {
-            final LinkedList<String> args = new LinkedList<>(Arrays.asList(argsArray));
+            final LinkedList<String> args = new LinkedList<String>(Arrays.asList(argsArray));
             if (args.isEmpty()) {
                 displayHelp();
             }
@@ -162,8 +158,10 @@ public class DictionaryMaker {
                 if (arg.charAt(0) == '-') {
                     if (OPTION_VERSION_2.equals(arg)) {
                         // Do nothing, this is the default
+                    } else if (OPTION_VERSION_3.equals(arg)) {
+                        outputBinaryFormatVersion = 3;
                     } else if (OPTION_VERSION_4.equals(arg)) {
-                        outputBinaryFormatVersion = FormatSpec.VERSION4;
+                        outputBinaryFormatVersion = 4;
                     } else if (OPTION_HELP.equals(arg)) {
                         displayHelp();
                     } else {
@@ -269,8 +267,8 @@ public class DictionaryMaker {
     private static FusionDictionary readBinaryFile(final String binaryFilename)
             throws FileNotFoundException, IOException, UnsupportedFormatException {
         final File file = new File(binaryFilename);
-        final DictDecoder dictDecoder = BinaryDictIOUtils.getDictDecoder(file, 0, file.length());
-        return dictDecoder.readDictionaryBinary(false /* deleteDictIfBroken */);
+        final DictDecoder dictDecoder = FormatSpec.getDictDecoder(file);
+        return dictDecoder.readDictionaryBinary(null, false /* deleteDictIfBroken */);
     }
 
     /**
@@ -283,19 +281,20 @@ public class DictionaryMaker {
      */
     private static FusionDictionary readCombinedFile(final String combinedFilename)
         throws FileNotFoundException, IOException {
-        try (final BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new FileInputStream(combinedFilename), "UTF-8"))
-        ) {
-            return CombinedInputOutput.readDictionaryCombined(reader);
+        FileInputStream inStream = null;
+        try {
+            final File file = new File(combinedFilename);
+            inStream = new FileInputStream(file);
+            return CombinedInputOutput.readDictionaryCombined(inStream);
+        } finally {
+            if (null != inStream) {
+                try {
+                    inStream.close();
+                } catch (IOException e) {
+                    // do nothing
+                }
+            }
         }
-    }
-
-    private static BufferedInputStream getBufferedFileInputStream(final String filename)
-            throws FileNotFoundException {
-        if (filename == null) {
-            return null;
-        }
-        return new BufferedInputStream(new FileInputStream(filename));
     }
 
     /**
@@ -313,13 +312,12 @@ public class DictionaryMaker {
     private static FusionDictionary readXmlFile(final String unigramXmlFilename,
             final String shortcutXmlFilename, final String bigramXmlFilename)
             throws FileNotFoundException, SAXException, IOException, ParserConfigurationException {
-        try (
-            final BufferedInputStream unigrams = getBufferedFileInputStream(unigramXmlFilename);
-            final BufferedInputStream shortcuts = getBufferedFileInputStream(shortcutXmlFilename);
-            final BufferedInputStream bigrams = getBufferedFileInputStream(bigramXmlFilename);
-        ) {
-            return XmlDictInputOutput.readDictionaryXml(unigrams, shortcuts, bigrams);
-        }
+        final FileInputStream unigrams = new FileInputStream(new File(unigramXmlFilename));
+        final FileInputStream shortcuts = null == shortcutXmlFilename ? null :
+                new FileInputStream(new File(shortcutXmlFilename));
+        final FileInputStream bigrams = null == bigramXmlFilename ? null :
+                new FileInputStream(new File(bigramXmlFilename));
+        return XmlDictInputOutput.readDictionaryXml(unigrams, shortcuts, bigrams);
     }
 
     /**
@@ -360,10 +358,10 @@ public class DictionaryMaker {
         final File outputFile = new File(outputFilename);
         final FormatSpec.FormatOptions formatOptions = new FormatSpec.FormatOptions(version);
         final DictEncoder dictEncoder;
-        if (version == FormatSpec.VERSION4) {
+        if (version == 4) {
             dictEncoder = new Ver4DictEncoder(outputFile);
         } else {
-            dictEncoder = new Ver2DictEncoder(outputFile);
+            dictEncoder = new Ver3DictEncoder(outputFile);
         }
         dictEncoder.writeDictionary(dict, formatOptions);
     }
@@ -378,9 +376,8 @@ public class DictionaryMaker {
      */
     private static void writeXmlDictionary(final String outputFilename,
             final FusionDictionary dict) throws FileNotFoundException, IOException {
-        try (final BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilename))) {
-            XmlDictInputOutput.writeDictionaryXml(writer, dict);
-        }
+        XmlDictInputOutput.writeDictionaryXml(new BufferedWriter(new FileWriter(outputFilename)),
+                dict);
     }
 
     /**
@@ -393,8 +390,7 @@ public class DictionaryMaker {
      */
     private static void writeCombinedDictionary(final String outputFilename,
             final FusionDictionary dict) throws FileNotFoundException, IOException {
-        try (final BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilename))) {
-            CombinedInputOutput.writeDictionaryCombined(writer, dict);
-        }
+        CombinedInputOutput.writeDictionaryCombined(
+                new BufferedWriter(new FileWriter(outputFilename)), dict);
     }
 }

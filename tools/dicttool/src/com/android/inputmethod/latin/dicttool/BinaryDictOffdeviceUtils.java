@@ -17,22 +17,20 @@
 package com.android.inputmethod.latin.dicttool;
 
 import com.android.inputmethod.latin.makedict.BinaryDictDecoderUtils;
-import com.android.inputmethod.latin.makedict.BinaryDictIOUtils;
 import com.android.inputmethod.latin.makedict.DictDecoder;
+import com.android.inputmethod.latin.makedict.FormatSpec;
 import com.android.inputmethod.latin.makedict.FusionDictionary;
 import com.android.inputmethod.latin.makedict.UnsupportedFormatException;
 
 import org.xml.sax.SAXException;
 
+import java.io.File;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
 
@@ -53,17 +51,14 @@ public final class BinaryDictOffdeviceUtils {
     public final static String ENCRYPTION = "encrypted";
 
     private final static int MAX_DECODE_DEPTH = 8;
-    private final static int COPY_BUFFER_SIZE = 8192;
 
     public static class DecoderChainSpec {
-        ArrayList<String> mDecoderSpec = new ArrayList<>();
+        ArrayList<String> mDecoderSpec = new ArrayList<String>();
         File mFile;
-
         public DecoderChainSpec addStep(final String stepDescription) {
             mDecoderSpec.add(stepDescription);
             return this;
         }
-
         public String describeChain() {
             final StringBuilder s = new StringBuilder("raw");
             for (final String step : mDecoderSpec) {
@@ -75,10 +70,13 @@ public final class BinaryDictOffdeviceUtils {
     }
 
     public static void copy(final InputStream input, final OutputStream output) throws IOException {
-        final byte[] buffer = new byte[COPY_BUFFER_SIZE];
-        for (int readBytes = input.read(buffer); readBytes >= 0; readBytes = input.read(buffer)) {
+        final byte[] buffer = new byte[1000];
+        final BufferedInputStream in = new BufferedInputStream(input);
+        final BufferedOutputStream out = new BufferedOutputStream(output);
+        for (int readBytes = in.read(buffer); readBytes >= 0; readBytes = in.read(buffer))
             output.write(buffer, 0, readBytes);
-        }
+        in.close();
+        out.close();
     }
 
     /**
@@ -133,15 +131,11 @@ public final class BinaryDictOffdeviceUtils {
         try {
             final File dst = File.createTempFile(PREFIX, SUFFIX);
             dst.deleteOnExit();
-            try (
-                final InputStream input = Compress.getUncompressedStream(
-                        new BufferedInputStream(new FileInputStream(src)));
-                final OutputStream output = new BufferedOutputStream(new FileOutputStream(dst))
-            ) {
-                copy(input, output);
-                return dst;
-            }
-        } catch (final IOException e) {
+            final FileOutputStream dstStream = new FileOutputStream(dst);
+            copy(Compress.getUncompressedStream(new BufferedInputStream(new FileInputStream(src))),
+                    new BufferedOutputStream(dstStream)); // #copy() closes the streams
+            return dst;
+        } catch (IOException e) {
             // Could not uncompress the file: presumably the file is simply not a compressed file
             return null;
         }
@@ -156,18 +150,18 @@ public final class BinaryDictOffdeviceUtils {
         try {
             final File dst = File.createTempFile(PREFIX, SUFFIX);
             dst.deleteOnExit();
-            try (
-                final InputStream input = Crypt.getDecryptedStream(
-                        new BufferedInputStream(new FileInputStream(src)));
-                final OutputStream output = new BufferedOutputStream(new FileOutputStream(dst))
-            ) {
-                copy(input, output);
-                return dst;
-            }
-        } catch (final IOException e) {
+            final FileOutputStream dstStream = new FileOutputStream(dst);
+            copy(Crypt.getDecryptedStream(new BufferedInputStream(new FileInputStream(src))),
+                    dstStream); // #copy() closes the streams
+            return dst;
+        } catch (IOException e) {
             // Could not decrypt the file: presumably the file is simply not a crypted file
             return null;
         }
+    }
+
+    static void crash(final String filename, final Exception e) {
+        throw new RuntimeException("Can't read file " + filename, e);
     }
 
     static FusionDictionary getDictionary(final String filename, final boolean report) {
@@ -178,40 +172,44 @@ public final class BinaryDictOffdeviceUtils {
         }
         try {
             if (XmlDictInputOutput.isXmlUnigramDictionary(filename)) {
-                if (report) {
-                    System.out.println("Format : XML unigram list");
-                }
+                if (report) System.out.println("Format : XML unigram list");
                 return XmlDictInputOutput.readDictionaryXml(
                         new BufferedInputStream(new FileInputStream(file)),
                         null /* shortcuts */, null /* bigrams */);
-            }
-            final DecoderChainSpec decodedSpec = getRawDictionaryOrNull(file);
-            if (null == decodedSpec) {
-                throw new RuntimeException("Does not seem to be a dictionary file " + filename);
-            }
-            if (CombinedInputOutput.isCombinedDictionary(decodedSpec.mFile.getAbsolutePath())) {
-                if (report) {
-                    System.out.println("Format : Combined format");
-                    System.out.println("Packaging : " + decodedSpec.describeChain());
-                    System.out.println("Uncompressed size : " + decodedSpec.mFile.length());
+            } else {
+                final DecoderChainSpec decodedSpec = getRawDictionaryOrNull(file);
+                if (null == decodedSpec) {
+                    crash(filename, new RuntimeException(
+                            filename + " does not seem to be a dictionary file"));
+                } else if (CombinedInputOutput.isCombinedDictionary(
+                        decodedSpec.mFile.getAbsolutePath())){
+                    if (report) {
+                        System.out.println("Format : Combined format");
+                        System.out.println("Packaging : " + decodedSpec.describeChain());
+                        System.out.println("Uncompressed size : " + decodedSpec.mFile.length());
+                    }
+                    return CombinedInputOutput.readDictionaryCombined(
+                            new BufferedInputStream(new FileInputStream(decodedSpec.mFile)));
+                } else {
+                    final DictDecoder dictDecoder = FormatSpec.getDictDecoder(decodedSpec.mFile,
+                            DictDecoder.USE_BYTEARRAY);
+                    if (report) {
+                        System.out.println("Format : Binary dictionary format");
+                        System.out.println("Packaging : " + decodedSpec.describeChain());
+                        System.out.println("Uncompressed size : " + decodedSpec.mFile.length());
+                    }
+                    return dictDecoder.readDictionaryBinary(null, false /* deleteDictIfBroken */);
                 }
-                try (final BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(new FileInputStream(decodedSpec.mFile), "UTF-8"))) {
-                    return CombinedInputOutput.readDictionaryCombined(reader);
-                }
             }
-            final DictDecoder dictDecoder = BinaryDictIOUtils.getDictDecoder(
-                    decodedSpec.mFile, 0, decodedSpec.mFile.length(),
-                    DictDecoder.USE_BYTEARRAY);
-            if (report) {
-                System.out.println("Format : Binary dictionary format");
-                System.out.println("Packaging : " + decodedSpec.describeChain());
-                System.out.println("Uncompressed size : " + decodedSpec.mFile.length());
-            }
-            return dictDecoder.readDictionaryBinary(false /* deleteDictIfBroken */);
-        } catch (final IOException | SAXException | ParserConfigurationException |
-                UnsupportedFormatException e) {
-            throw new RuntimeException("Can't read file " + filename, e);
+        } catch (IOException e) {
+            crash(filename, e);
+        } catch (SAXException e) {
+            crash(filename, e);
+        } catch (ParserConfigurationException e) {
+            crash(filename, e);
+        } catch (UnsupportedFormatException e) {
+            crash(filename, e);
         }
+        return null;
     }
 }

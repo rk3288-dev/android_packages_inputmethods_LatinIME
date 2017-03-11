@@ -22,11 +22,7 @@
     xmlns:latin="http://schemas.android.com/apk/res/com.android.inputmethod.latin"
 >
     <Key
-        latin:keySpec="!"
-        latin:moreKeys="!text/morekeys_exclamation"
-        latin:keyLabelFlags="fontDefault" />
+        latin:keyLabel="!" />
     <Key
-        latin:keySpec="\?"
-        latin:moreKeys="!text/morekeys_question"
-        latin:keyLabelFlags="fontDefault" />
+        latin:keyLabel="\?" />
 </merge>

@@ -30,10 +30,10 @@ public class LatinImeStressTests extends InputTestsBase {
         final int maxWordCountToTypeInEachIteration = 20;
         final long seed = System.currentTimeMillis();
         final Random random = new Random(seed);
+        final int codePointSetSize = 30;
         final int[] codePointSet = CodePointUtils.LATIN_ALPHABETS_LOWER;
         for (int i = 0; i < switchCount; ++i) {
-            changeLanguageWithoutWait(locales[random.nextInt(locales.length)],
-                    null /* combiningSpec */);
+            changeLanguageWithoutWait(locales[random.nextInt(locales.length)]);
             final int wordCount = random.nextInt(maxWordCountToTypeInEachIteration);
             for (int j = 0; j < wordCount; ++j) {
                 final String word = CodePointUtils.generateWord(random, codePointSet);
@@ -41,7 +41,7 @@ public class LatinImeStressTests extends InputTestsBase {
             }
         }
     }
-    public void testSwitchLanguagesAndInputRandomCodePoints() {
+    public void testSwitchLanguagesAndInputRandamCodePoints() {
         final String[] locales = {"en_US", "de", "el", "es", "fi", "it", "nl", "pt", "ru"};
         final int switchCount = 50;
         final int maxWordCountToTypeInEachIteration = 20;
@@ -50,8 +50,7 @@ public class LatinImeStressTests extends InputTestsBase {
         final int codePointSetSize = 30;
         final int[] codePointSet = CodePointUtils.generateCodePointSet(codePointSetSize, random);
         for (int i = 0; i < switchCount; ++i) {
-            changeLanguageWithoutWait(locales[random.nextInt(locales.length)],
-                    null /* combiningSpec */);
+            changeLanguageWithoutWait(locales[random.nextInt(locales.length)]);
             final int wordCount = random.nextInt(maxWordCountToTypeInEachIteration);
             for (int j = 0; j < wordCount; ++j) {
                 final String word = CodePointUtils.generateWord(random, codePointSet);

@@ -18,14 +18,14 @@ package com.android.inputmethod.latin.utils;
 
 import android.util.Log;
 
-import com.android.inputmethod.latin.define.DebugFlags;
+import com.android.inputmethod.latin.LatinImeLogger;
 
 /**
  * A class for logging and debugging utility methods.
  */
 public final class DebugLogUtils {
     private final static String TAG = DebugLogUtils.class.getSimpleName();
-    private final static boolean sDBG = DebugFlags.DEBUG_ENABLED;
+    private final static boolean sDBG = LatinImeLogger.sDBG;
 
     /**
      * Calls .toString() on its non-null argument or returns "null"

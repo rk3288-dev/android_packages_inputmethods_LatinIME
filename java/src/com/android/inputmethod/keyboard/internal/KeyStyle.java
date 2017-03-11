@@ -32,15 +32,15 @@ public abstract class KeyStyle {
 
     protected String parseString(final TypedArray a, final int index) {
         if (a.hasValue(index)) {
-            return mTextsSet.resolveTextReference(a.getString(index));
+            return KeySpecParser.resolveTextReference(a.getString(index), mTextsSet);
         }
         return null;
     }
 
     protected String[] parseStringArray(final TypedArray a, final int index) {
         if (a.hasValue(index)) {
-            final String text = mTextsSet.resolveTextReference(a.getString(index));
-            return MoreKeySpec.splitKeySpecs(text);
+            final String text = KeySpecParser.resolveTextReference(a.getString(index), mTextsSet);
+            return KeySpecParser.splitKeySpecs(text);
         }
         return null;
     }

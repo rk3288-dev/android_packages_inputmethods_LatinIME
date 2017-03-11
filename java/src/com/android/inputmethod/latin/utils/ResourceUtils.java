@@ -41,7 +41,8 @@ public final class ResourceUtils {
         // This utility class is not publicly instantiable.
     }
 
-    private static final HashMap<String, String> sDeviceOverrideValueMap = new HashMap<>();
+    private static final HashMap<String, String> sDeviceOverrideValueMap =
+            CollectionUtils.newHashMap();
 
     private static final String[] BUILD_KEYS_AND_VALUES = {
         "HARDWARE", Build.HARDWARE,
@@ -53,8 +54,8 @@ public final class ResourceUtils {
     private static final String sBuildKeyValuesDebugString;
 
     static {
-        sBuildKeyValues = new HashMap<>();
-        final ArrayList<String> keyValuePairs = new ArrayList<>();
+        sBuildKeyValues = CollectionUtils.newHashMap();
+        final ArrayList<String> keyValuePairs = CollectionUtils.newArrayList();
         final int keyCount = BUILD_KEYS_AND_VALUES.length / 2;
         for (int i = 0; i < keyCount; i++) {
             final int index = i * 2;
@@ -66,8 +67,7 @@ public final class ResourceUtils {
         sBuildKeyValuesDebugString = "[" + TextUtils.join(" ", keyValuePairs) + "]";
     }
 
-    public static String getDeviceOverrideValue(final Resources res, final int overrideResId,
-            final String defaultValue) {
+    public static String getDeviceOverrideValue(final Resources res, final int overrideResId) {
         final int orientation = res.getConfiguration().orientation;
         final String key = overrideResId + "-" + orientation;
         if (sDeviceOverrideValueMap.containsKey(key)) {
@@ -86,6 +86,23 @@ public final class ResourceUtils {
             return overrideValue;
         }
 
+        String defaultValue = null;
+        try {
+            defaultValue = findDefaultConstant(overrideArray);
+            // The defaultValue might be an empty string.
+            if (defaultValue == null) {
+                Log.w(TAG, "Couldn't find override value nor default value:"
+                        + " resource="+ res.getResourceEntryName(overrideResId)
+                        + " build=" + sBuildKeyValuesDebugString);
+            } else {
+                Log.i(TAG, "Found default value:"
+                        + " resource="+ res.getResourceEntryName(overrideResId)
+                        + " build=" + sBuildKeyValuesDebugString
+                        + " default=" + defaultValue);
+            }
+        } catch (final DeviceOverridePatternSyntaxError e) {
+            Log.w(TAG, "Syntax error, ignored", e);
+        }
         sDeviceOverrideValueMap.put(key, defaultValue);
         return defaultValue;
     }
@@ -135,7 +152,8 @@ public final class ResourceUtils {
             }
             final String condition = conditionConstant.substring(0, posComma);
             if (condition.isEmpty()) {
-                Log.w(TAG, "Array element has no condition: " + conditionConstant);
+                // Default condition. The default condition should be searched by
+                // {@link #findConstantForDefault(String[])}.
                 continue;
             }
             try {
@@ -181,6 +199,24 @@ public final class ResourceUtils {
         return matchedAll;
     }
 
+    @UsedForTesting
+    static String findDefaultConstant(final String[] conditionConstantArray)
+            throws DeviceOverridePatternSyntaxError {
+        if (conditionConstantArray == null) {
+            return null;
+        }
+        for (final String condition : conditionConstantArray) {
+            final int posComma = condition.indexOf(',');
+            if (posComma < 0) {
+                throw new DeviceOverridePatternSyntaxError("Array element has no comma", condition);
+            }
+            if (posComma == 0) { // condition is empty.
+                return condition.substring(posComma + 1);
+            }
+        }
+        return null;
+    }
+
     public static int getDefaultKeyboardWidth(final Resources res) {
         final DisplayMetrics dm = res.getDisplayMetrics();
         return dm.widthPixels;
@@ -188,23 +224,22 @@ public final class ResourceUtils {
 
     public static int getDefaultKeyboardHeight(final Resources res) {
         final DisplayMetrics dm = res.getDisplayMetrics();
-        final String keyboardHeightInDp = getDeviceOverrideValue(
-                res, R.array.keyboard_heights, null /* defaultValue */);
+        final String keyboardHeightString = getDeviceOverrideValue(res, R.array.keyboard_heights);
         final float keyboardHeight;
-        if (TextUtils.isEmpty(keyboardHeightInDp)) {
-            keyboardHeight = res.getDimension(R.dimen.config_default_keyboard_height);
+        if (TextUtils.isEmpty(keyboardHeightString)) {
+            keyboardHeight = res.getDimension(R.dimen.keyboardHeight);
         } else {
-            keyboardHeight = Float.parseFloat(keyboardHeightInDp) * dm.density;
+            keyboardHeight = Float.parseFloat(keyboardHeightString) * dm.density;
         }
         final float maxKeyboardHeight = res.getFraction(
-                R.fraction.config_max_keyboard_height, dm.heightPixels, dm.heightPixels);
+                R.fraction.maxKeyboardHeight, dm.heightPixels, dm.heightPixels);
         float minKeyboardHeight = res.getFraction(
-                R.fraction.config_min_keyboard_height, dm.heightPixels, dm.heightPixels);
+                R.fraction.minKeyboardHeight, dm.heightPixels, dm.heightPixels);
         if (minKeyboardHeight < 0.0f) {
             // Specified fraction was negative, so it should be calculated against display
             // width.
             minKeyboardHeight = -res.getFraction(
-                    R.fraction.config_min_keyboard_height, dm.widthPixels, dm.widthPixels);
+                    R.fraction.minKeyboardHeight, dm.widthPixels, dm.widthPixels);
         }
         // Keyboard height will not exceed maxKeyboardHeight and will not be less than
         // minKeyboardHeight.
@@ -223,10 +258,6 @@ public final class ResourceUtils {
     // {@link Resources#getDimensionPixelOffset(int)} may return zero pixel offset.
     public static boolean isValidDimensionPixelOffset(final int dimension) {
         return dimension >= 0;
-    }
-
-    public static float getFloatFromFraction(final Resources res, final int fractionResId) {
-        return res.getFraction(fractionResId, 1, 1);
     }
 
     public static float getFraction(final TypedArray a, final int index, final float defValue) {

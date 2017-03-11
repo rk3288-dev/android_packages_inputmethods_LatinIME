@@ -26,7 +26,7 @@
             latin:keyboardLayoutSetElement="alphabetManualShifted|alphabetShiftLocked|alphabetShiftLockShifted"
         >
             <Key
-                latin:keySpec="&quot;"
+                latin:keyLabel="&quot;"
                 latin:keyHintLabel="1"
                 latin:additionalMoreKeys="1" />
         </case>
@@ -34,7 +34,7 @@
             latin:mode="url"
         >
             <Key
-                latin:keySpec="/"
+                latin:keyLabel="/"
                 latin:keyHintLabel="1"
                 latin:additionalMoreKeys="1" />
         </case>
@@ -42,13 +42,13 @@
             latin:mode="email"
         >
             <Key
-                latin:keySpec="\@"
+                latin:keyLabel="\@"
                 latin:keyHintLabel="1"
                 latin:additionalMoreKeys="1" />
         </case>
         <default>
             <Key
-                latin:keySpec="\'"
+                latin:keyLabel="\'"
                 latin:keyHintLabel="1"
                 latin:additionalMoreKeys="1"
                 latin:moreKeys="!,&quot;" />
@@ -59,22 +59,22 @@
             latin:keyboardLayoutSetElement="alphabetManualShifted|alphabetShiftLocked|alphabetShiftLockShifted"
         >
             <Key
-                latin:keySpec="&lt;"
+                latin:keyLabel="&lt;"
                 latin:keyHintLabel="2"
                 latin:additionalMoreKeys="2" />
             <Key
-                latin:keySpec="&gt;"
+                latin:keyLabel="&gt;"
                 latin:keyHintLabel="3"
                 latin:additionalMoreKeys="3" />
         </case>
         <default>
             <Key
-                latin:keySpec=","
+                latin:keyLabel=","
                 latin:keyHintLabel="2"
                 latin:additionalMoreKeys="2"
                 latin:moreKeys="\?,&lt;" />
             <Key
-                latin:keySpec="."
+                latin:keyLabel="."
                 latin:keyHintLabel="3"
                 latin:additionalMoreKeys="3"
                 latin:moreKeys="&gt;" />

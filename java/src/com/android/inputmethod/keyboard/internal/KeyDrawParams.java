@@ -16,6 +16,7 @@
 
 package com.android.inputmethod.keyboard.internal;
 
+import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 
 import com.android.inputmethod.latin.utils.ResourceUtils;
@@ -26,24 +27,20 @@ public final class KeyDrawParams {
     public int mLetterSize;
     public int mLabelSize;
     public int mLargeLetterSize;
+    public int mLargeLabelSize;
     public int mHintLetterSize;
     public int mShiftedLetterHintSize;
     public int mHintLabelSize;
     public int mPreviewTextSize;
 
-    public int mTextColor;
+    public ColorStateList mTextColorStateList;
     public int mTextInactivatedColor;
     public int mTextShadowColor;
-    public int mFunctionalTextColor;
     public int mHintLetterColor;
     public int mHintLabelColor;
     public int mShiftedLetterHintInactivatedColor;
     public int mShiftedLetterHintActivatedColor;
     public int mPreviewTextColor;
-
-    public float mHintLabelVerticalAdjustment;
-    public float mLabelOffCenterRatio;
-    public float mHintLabelOffCenterRatio;
 
     public int mAnimAlpha;
 
@@ -55,24 +52,20 @@ public final class KeyDrawParams {
         mLetterSize = copyFrom.mLetterSize;
         mLabelSize = copyFrom.mLabelSize;
         mLargeLetterSize = copyFrom.mLargeLetterSize;
+        mLargeLabelSize = copyFrom.mLargeLabelSize;
         mHintLetterSize = copyFrom.mHintLetterSize;
         mShiftedLetterHintSize = copyFrom.mShiftedLetterHintSize;
         mHintLabelSize = copyFrom.mHintLabelSize;
         mPreviewTextSize = copyFrom.mPreviewTextSize;
 
-        mTextColor = copyFrom.mTextColor;
+        mTextColorStateList = copyFrom.mTextColorStateList;
         mTextInactivatedColor = copyFrom.mTextInactivatedColor;
         mTextShadowColor = copyFrom.mTextShadowColor;
-        mFunctionalTextColor = copyFrom.mFunctionalTextColor;
         mHintLetterColor = copyFrom.mHintLetterColor;
         mHintLabelColor = copyFrom.mHintLabelColor;
         mShiftedLetterHintInactivatedColor = copyFrom.mShiftedLetterHintInactivatedColor;
         mShiftedLetterHintActivatedColor = copyFrom.mShiftedLetterHintActivatedColor;
         mPreviewTextColor = copyFrom.mPreviewTextColor;
-
-        mHintLabelVerticalAdjustment = copyFrom.mHintLabelVerticalAdjustment;
-        mLabelOffCenterRatio = copyFrom.mLabelOffCenterRatio;
-        mHintLabelOffCenterRatio = copyFrom.mHintLabelOffCenterRatio;
 
         mAnimAlpha = copyFrom.mAnimAlpha;
     }
@@ -90,17 +83,17 @@ public final class KeyDrawParams {
                 attr.mLetterSize, attr.mLetterRatio, mLetterSize);
         mLabelSize = selectTextSizeFromDimensionOrRatio(keyHeight,
                 attr.mLabelSize, attr.mLabelRatio, mLabelSize);
+        mLargeLabelSize = selectTextSize(keyHeight, attr.mLargeLabelRatio, mLargeLabelSize);
         mLargeLetterSize = selectTextSize(keyHeight, attr.mLargeLetterRatio, mLargeLetterSize);
         mHintLetterSize = selectTextSize(keyHeight, attr.mHintLetterRatio, mHintLetterSize);
         mShiftedLetterHintSize = selectTextSize(keyHeight,
                 attr.mShiftedLetterHintRatio, mShiftedLetterHintSize);
         mHintLabelSize = selectTextSize(keyHeight, attr.mHintLabelRatio, mHintLabelSize);
         mPreviewTextSize = selectTextSize(keyHeight, attr.mPreviewTextRatio, mPreviewTextSize);
-
-        mTextColor = selectColor(attr.mTextColor, mTextColor);
+        mTextColorStateList =
+                attr.mTextColorStateList != null ? attr.mTextColorStateList : mTextColorStateList;
         mTextInactivatedColor = selectColor(attr.mTextInactivatedColor, mTextInactivatedColor);
         mTextShadowColor = selectColor(attr.mTextShadowColor, mTextShadowColor);
-        mFunctionalTextColor = selectColor(attr.mFunctionalTextColor, mFunctionalTextColor);
         mHintLetterColor = selectColor(attr.mHintLetterColor, mHintLetterColor);
         mHintLabelColor = selectColor(attr.mHintLabelColor, mHintLabelColor);
         mShiftedLetterHintInactivatedColor = selectColor(
@@ -108,13 +101,6 @@ public final class KeyDrawParams {
         mShiftedLetterHintActivatedColor = selectColor(
                 attr.mShiftedLetterHintActivatedColor, mShiftedLetterHintActivatedColor);
         mPreviewTextColor = selectColor(attr.mPreviewTextColor, mPreviewTextColor);
-
-        mHintLabelVerticalAdjustment = selectFloatIfNonZero(
-                attr.mHintLabelVerticalAdjustment, mHintLabelVerticalAdjustment);
-        mLabelOffCenterRatio = selectFloatIfNonZero(
-                attr.mLabelOffCenterRatio, mLabelOffCenterRatio);
-        mHintLabelOffCenterRatio = selectFloatIfNonZero(
-                attr.mHintLabelOffCenterRatio, mHintLabelOffCenterRatio);
     }
 
     public KeyDrawParams mayCloneAndUpdateParams(final int keyHeight,
@@ -127,7 +113,7 @@ public final class KeyDrawParams {
         return newParams;
     }
 
-    private static int selectTextSizeFromDimensionOrRatio(final int keyHeight,
+    private static final int selectTextSizeFromDimensionOrRatio(final int keyHeight,
             final int dimens, final float ratio, final int defaultDimens) {
         if (ResourceUtils.isValidDimensionPixelSize(dimens)) {
             return dimens;
@@ -138,7 +124,7 @@ public final class KeyDrawParams {
         return defaultDimens;
     }
 
-    private static int selectTextSize(final int keyHeight, final float ratio,
+    private static final int selectTextSize(final int keyHeight, final float ratio,
             final int defaultSize) {
         if (ResourceUtils.isValidFraction(ratio)) {
             return (int)(keyHeight * ratio);
@@ -146,17 +132,10 @@ public final class KeyDrawParams {
         return defaultSize;
     }
 
-    private static int selectColor(final int attrColor, final int defaultColor) {
+    private static final int selectColor(final int attrColor, final int defaultColor) {
         if (attrColor != 0) {
             return attrColor;
         }
         return defaultColor;
-    }
-
-    private static float selectFloatIfNonZero(final float attrFloat, final float defaultFloat) {
-        if (attrFloat != 0) {
-            return attrFloat;
-        }
-        return defaultFloat;
     }
 }

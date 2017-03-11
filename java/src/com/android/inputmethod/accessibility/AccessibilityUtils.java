@@ -17,6 +17,7 @@
 package com.android.inputmethod.accessibility;
 
 import android.content.Context;
+import android.inputmethodservice.InputMethodService;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.SystemClock;
@@ -62,11 +63,13 @@ public final class AccessibilityUtils {
      */
     private static final boolean ENABLE_ACCESSIBILITY = true;
 
-    public static void init(final Context context) {
+    public static void init(final InputMethodService inputMethod) {
         if (!ENABLE_ACCESSIBILITY) return;
 
         // These only need to be initialized if the kill switch is off.
-        sInstance.initInternal(context);
+        sInstance.initInternal(inputMethod);
+        KeyCodeDescriptionMapper.init();
+        AccessibleKeyboardViewProxy.init(inputMethod);
     }
 
     public static AccessibilityUtils getInstance() {
@@ -113,7 +116,7 @@ public final class AccessibilityUtils {
      * @param event The event to check.
      * @return {@true} is the event is a touch exploration event
      */
-    public static boolean isTouchExplorationEvent(final MotionEvent event) {
+    public boolean isTouchExplorationEvent(final MotionEvent event) {
         final int action = event.getAction();
         return action == MotionEvent.ACTION_HOVER_ENTER
                 || action == MotionEvent.ACTION_HOVER_EXIT
@@ -155,7 +158,7 @@ public final class AccessibilityUtils {
      * @param typedWord the currently typed word
      */
     public void setAutoCorrection(final SuggestedWords suggestedWords, final String typedWord) {
-        if (suggestedWords.mWillAutoCorrect) {
+        if (suggestedWords != null && suggestedWords.mWillAutoCorrect) {
             mAutoCorrectionWord = suggestedWords.getWord(SuggestedWords.INDEX_OF_AUTO_CORRECTION);
             mTypedWord = typedWord;
         } else {

@@ -16,27 +16,21 @@
 
 package com.android.inputmethod.latin;
 
-import android.content.res.Resources;
+import com.android.inputmethod.latin.utils.TextRange;
+
 import android.inputmethodservice.InputMethodService;
 import android.os.Parcel;
 import android.test.AndroidTestCase;
 import android.test.MoreAsserts;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.style.SuggestionSpan;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputConnectionWrapper;
-
-import com.android.inputmethod.latin.PrevWordsInfo.WordInfo;
-import com.android.inputmethod.latin.settings.SpacingAndPunctuations;
-import com.android.inputmethod.latin.utils.PrevWordsInfoUtils;
-import com.android.inputmethod.latin.utils.RunInLocale;
-import com.android.inputmethod.latin.utils.ScriptUtils;
-import com.android.inputmethod.latin.utils.StringUtils;
-import com.android.inputmethod.latin.utils.TextRange;
 
 import java.util.Locale;
 
@@ -45,19 +39,11 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
 
     // The following is meant to be a reasonable default for
     // the "word_separators" resource.
-    private SpacingAndPunctuations mSpacingAndPunctuations;
+    private static final String sSeparators = ".,:;!?-";
 
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        final RunInLocale<SpacingAndPunctuations> job = new RunInLocale<SpacingAndPunctuations>() {
-            @Override
-            protected SpacingAndPunctuations job(final Resources res) {
-                return new SpacingAndPunctuations(res);
-            }
-        };
-        final Resources res = getContext().getResources();
-        mSpacingAndPunctuations = job.runInLocale(res, Locale.ENGLISH);
     }
 
     private class MockConnection extends InputConnectionWrapper {
@@ -90,10 +76,6 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
             mTextBefore = textBefore;
             mTextAfter = textAfter;
             mExtractedText = extractedText;
-        }
-
-        public int cursorPos() {
-            return mTextBefore.length();
         }
 
         /* (non-Javadoc)
@@ -138,16 +120,13 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
     }
 
     private class MockInputMethodService extends InputMethodService {
-        private MockConnection mMockConnection;
-        public void setInputConnection(final MockConnection mockConnection) {
-            mMockConnection = mockConnection;
-        }
-        public int cursorPos() {
-            return mMockConnection.cursorPos();
+        InputConnection mInputConnection;
+        public void setInputConnection(final InputConnection inputConnection) {
+            mInputConnection = inputConnection;
         }
         @Override
         public InputConnection getCurrentInputConnection() {
-            return mMockConnection;
+            return mInputConnection;
         }
     }
 
@@ -158,26 +137,9 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
      */
     public void testGetPreviousWord() {
         // If one of the following cases breaks, the bigram suggestions won't work.
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def", mSpacingAndPunctuations, 2).mPrevWordsInfo[0].mWord, "abc");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc", mSpacingAndPunctuations, 2), PrevWordsInfo.BEGINNING_OF_SENTENCE);
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc. def", mSpacingAndPunctuations, 2), PrevWordsInfo.BEGINNING_OF_SENTENCE);
-
-        assertFalse(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def", mSpacingAndPunctuations, 2).mPrevWordsInfo[0].mIsBeginningOfSentence);
-        assertTrue(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc", mSpacingAndPunctuations, 2).mPrevWordsInfo[0].mIsBeginningOfSentence);
-
-        // For n-gram
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def", mSpacingAndPunctuations, 1).mPrevWordsInfo[0].mWord, "def");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def", mSpacingAndPunctuations, 1).mPrevWordsInfo[1].mWord, "abc");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def", mSpacingAndPunctuations, 2).mPrevWordsInfo[1],
-                WordInfo.BEGINNING_OF_SENTENCE);
+        assertEquals(RichInputConnection.getNthPreviousWord("abc def", sSeparators, 2), "abc");
+        assertNull(RichInputConnection.getNthPreviousWord("abc", sSeparators, 2));
+        assertNull(RichInputConnection.getNthPreviousWord("abc. def", sSeparators, 2));
 
         // The following tests reflect the current behavior of the function
         // RichInputConnection#getNthPreviousWord.
@@ -186,52 +148,21 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
         // this function if needed - especially since it does not seem very
         // logical. These tests are just there to catch any unintentional
         // changes in the behavior of the RichInputConnection#getPreviousWord method.
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def ", mSpacingAndPunctuations, 2).mPrevWordsInfo[0].mWord, "abc");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def.", mSpacingAndPunctuations, 2).mPrevWordsInfo[0].mWord, "abc");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def .", mSpacingAndPunctuations, 2).mPrevWordsInfo[0].mWord, "def");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc ", mSpacingAndPunctuations, 2), PrevWordsInfo.BEGINNING_OF_SENTENCE);
+        assertEquals(RichInputConnection.getNthPreviousWord("abc def ", sSeparators, 2), "abc");
+        assertEquals(RichInputConnection.getNthPreviousWord("abc def.", sSeparators, 2), "abc");
+        assertEquals(RichInputConnection.getNthPreviousWord("abc def .", sSeparators, 2), "def");
+        assertNull(RichInputConnection.getNthPreviousWord("abc ", sSeparators, 2));
 
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def", mSpacingAndPunctuations, 1).mPrevWordsInfo[0].mWord, "def");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def ", mSpacingAndPunctuations, 1).mPrevWordsInfo[0].mWord, "def");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc 'def", mSpacingAndPunctuations, 1).mPrevWordsInfo[0].mWord, "'def");
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def.", mSpacingAndPunctuations, 1), PrevWordsInfo.BEGINNING_OF_SENTENCE);
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc def .", mSpacingAndPunctuations, 1), PrevWordsInfo.BEGINNING_OF_SENTENCE);
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc, def", mSpacingAndPunctuations, 2), PrevWordsInfo.EMPTY_PREV_WORDS_INFO);
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc? def", mSpacingAndPunctuations, 2), PrevWordsInfo.EMPTY_PREV_WORDS_INFO);
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc! def", mSpacingAndPunctuations, 2), PrevWordsInfo.EMPTY_PREV_WORDS_INFO);
-        assertEquals(PrevWordsInfoUtils.getPrevWordsInfoFromNthPreviousWord(
-                "abc 'def", mSpacingAndPunctuations, 2), PrevWordsInfo.EMPTY_PREV_WORDS_INFO);
+        assertEquals(RichInputConnection.getNthPreviousWord("abc def", sSeparators, 1), "def");
+        assertEquals(RichInputConnection.getNthPreviousWord("abc def ", sSeparators, 1), "def");
+        assertNull(RichInputConnection.getNthPreviousWord("abc def.", sSeparators, 1));
+        assertNull(RichInputConnection.getNthPreviousWord("abc def .", sSeparators, 1));
     }
 
+    /**
+     * Test logic in getting the word range at the cursor.
+     */
     public void testGetWordRangeAtCursor() {
-        /**
-         * Test logic in getting the word range at the cursor.
-         */
-        final SpacingAndPunctuations SPACE = new SpacingAndPunctuations(
-                mSpacingAndPunctuations, new int[] { Constants.CODE_SPACE });
-        final SpacingAndPunctuations TAB = new SpacingAndPunctuations(
-                mSpacingAndPunctuations, new int[] { Constants.CODE_TAB });
-        final int[] SPACE_TAB = StringUtils.toSortedCodePointArray(" \t");
-        // A character that needs surrogate pair to represent its code point (U+2008A).
-        final String SUPPLEMENTARY_CHAR_STRING = "\uD840\uDC8A";
-        final SpacingAndPunctuations SUPPLEMENTARY_CHAR = new SpacingAndPunctuations(
-                mSpacingAndPunctuations, StringUtils.toSortedCodePointArray(
-                        SUPPLEMENTARY_CHAR_STRING));
-        final String HIRAGANA_WORD = "\u3042\u3044\u3046\u3048\u304A"; // あいうえお
-        final String GREEK_WORD = "\u03BA\u03B1\u03B9"; // και
-
         ExtractedText et = new ExtractedText();
         final MockInputMethodService mockInputMethodService = new MockInputMethodService();
         final RichInputConnection ic = new RichInputConnection(mockInputMethodService);
@@ -242,39 +173,50 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
 
         ic.beginBatchEdit();
         // basic case
-        r = ic.getWordRangeAtCursor(SPACE, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(" ", 0);
         assertTrue(TextUtils.equals("word", r.mWord));
+
+        // more than one word
+        r = ic.getWordRangeAtCursor(" ", 1);
+        assertTrue(TextUtils.equals("word word", r.mWord));
+        ic.endBatchEdit();
 
         // tab character instead of space
         mockInputMethodService.setInputConnection(new MockConnection("one\tword\two", "rd", et));
         ic.beginBatchEdit();
-        r = ic.getWordRangeAtCursor(TAB, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor("\t", 1);
         ic.endBatchEdit();
-        assertTrue(TextUtils.equals("word", r.mWord));
+        assertTrue(TextUtils.equals("word\tword", r.mWord));
+
+        // only one word doesn't go too far
+        mockInputMethodService.setInputConnection(new MockConnection("one\tword\two", "rd", et));
+        ic.beginBatchEdit();
+        r = ic.getWordRangeAtCursor("\t", 1);
+        ic.endBatchEdit();
+        assertTrue(TextUtils.equals("word\tword", r.mWord));
+
+        // tab or space
+        mockInputMethodService.setInputConnection(new MockConnection("one word\two", "rd", et));
+        ic.beginBatchEdit();
+        r = ic.getWordRangeAtCursor(" \t", 1);
+        ic.endBatchEdit();
+        assertTrue(TextUtils.equals("word\tword", r.mWord));
+
+        // tab or space multiword
+        mockInputMethodService.setInputConnection(new MockConnection("one word\two", "rd", et));
+        ic.beginBatchEdit();
+        r = ic.getWordRangeAtCursor(" \t", 2);
+        ic.endBatchEdit();
+        assertTrue(TextUtils.equals("one word\tword", r.mWord));
 
         // splitting on supplementary character
+        final String supplementaryChar = "\uD840\uDC8A";
         mockInputMethodService.setInputConnection(
-                new MockConnection("one word" + SUPPLEMENTARY_CHAR_STRING + "wo", "rd", et));
+                new MockConnection("one word" + supplementaryChar + "wo", "rd", et));
         ic.beginBatchEdit();
-        r = ic.getWordRangeAtCursor(SUPPLEMENTARY_CHAR, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(supplementaryChar, 0);
         ic.endBatchEdit();
         assertTrue(TextUtils.equals("word", r.mWord));
-
-        // split on chars outside the specified script
-        mockInputMethodService.setInputConnection(
-                new MockConnection(HIRAGANA_WORD + "wo", "rd" + GREEK_WORD, et));
-        ic.beginBatchEdit();
-        r = ic.getWordRangeAtCursor(SUPPLEMENTARY_CHAR, ScriptUtils.SCRIPT_LATIN);
-        ic.endBatchEdit();
-        assertTrue(TextUtils.equals("word", r.mWord));
-
-        // likewise for greek
-        mockInputMethodService.setInputConnection(
-                new MockConnection("text" + GREEK_WORD, "text", et));
-        ic.beginBatchEdit();
-        r = ic.getWordRangeAtCursor(SUPPLEMENTARY_CHAR, ScriptUtils.SCRIPT_GREEK);
-        ic.endBatchEdit();
-        assertTrue(TextUtils.equals(GREEK_WORD, r.mWord));
     }
 
     /**
@@ -288,8 +230,6 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
     }
 
     private void helpTestGetSuggestionSpansAtWord(final int cursorPos) {
-        final SpacingAndPunctuations SPACE = new SpacingAndPunctuations(
-                mSpacingAndPunctuations, new int[] { Constants.CODE_SPACE });
         final MockInputMethodService mockInputMethodService = new MockInputMethodService();
         final RichInputConnection ic = new RichInputConnection(mockInputMethodService);
 
@@ -304,7 +244,7 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
         TextRange r;
         SuggestionSpan[] suggestions;
 
-        r = ic.getWordRangeAtCursor(SPACE, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(" ", 0);
         suggestions = r.getSuggestionSpansAtWord();
         assertEquals(suggestions.length, 1);
         MoreAsserts.assertEquals(suggestions[0].getSuggestions(), SUGGESTIONS1);
@@ -316,7 +256,7 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
         text.setSpan(new SuggestionSpan(Locale.ENGLISH, SUGGESTIONS2, 0 /* flags */),
                 10 /* start */, 16 /* end */, 0 /* flags */);
         mockInputMethodService.setInputConnection(new MockConnection(text, cursorPos));
-        r = ic.getWordRangeAtCursor(SPACE, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(" ", 0);
         suggestions = r.getSuggestionSpansAtWord();
         assertEquals(suggestions.length, 2);
         MoreAsserts.assertEquals(suggestions[0].getSuggestions(), SUGGESTIONS1);
@@ -329,7 +269,7 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
         text.setSpan(new SuggestionSpan(Locale.ENGLISH, SUGGESTIONS2, 0 /* flags */),
                 5 /* start */, 16 /* end */, 0 /* flags */);
         mockInputMethodService.setInputConnection(new MockConnection(text, cursorPos));
-        r = ic.getWordRangeAtCursor(SPACE, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(" ", 0);
         suggestions = r.getSuggestionSpansAtWord();
         assertEquals(suggestions.length, 1);
         MoreAsserts.assertEquals(suggestions[0].getSuggestions(), SUGGESTIONS1);
@@ -341,7 +281,7 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
         text.setSpan(new SuggestionSpan(Locale.ENGLISH, SUGGESTIONS2, 0 /* flags */),
                 10 /* start */, 20 /* end */, 0 /* flags */);
         mockInputMethodService.setInputConnection(new MockConnection(text, cursorPos));
-        r = ic.getWordRangeAtCursor(SPACE, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(" ", 0);
         suggestions = r.getSuggestionSpansAtWord();
         assertEquals(suggestions.length, 1);
         MoreAsserts.assertEquals(suggestions[0].getSuggestions(), SUGGESTIONS1);
@@ -353,7 +293,7 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
         text.setSpan(new SuggestionSpan(Locale.ENGLISH, SUGGESTIONS2, 0 /* flags */),
                 5 /* start */, 20 /* end */, 0 /* flags */);
         mockInputMethodService.setInputConnection(new MockConnection(text, cursorPos));
-        r = ic.getWordRangeAtCursor(SPACE, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(" ", 0);
         suggestions = r.getSuggestionSpansAtWord();
         assertEquals(suggestions.length, 1);
         MoreAsserts.assertEquals(suggestions[0].getSuggestions(), SUGGESTIONS1);
@@ -365,86 +305,8 @@ public class RichInputConnectionAndTextRangeTests extends AndroidTestCase {
         text.setSpan(new SuggestionSpan(Locale.ENGLISH, SUGGESTIONS2, 0 /* flags */),
                 5 /* start */, 20 /* end */, 0 /* flags */);
         mockInputMethodService.setInputConnection(new MockConnection(text, cursorPos));
-        r = ic.getWordRangeAtCursor(SPACE, ScriptUtils.SCRIPT_LATIN);
+        r = ic.getWordRangeAtCursor(" ", 0);
         suggestions = r.getSuggestionSpansAtWord();
         assertEquals(suggestions.length, 0);
-    }
-
-    public void testCursorTouchingWord() {
-        final MockInputMethodService ims = new MockInputMethodService();
-        final RichInputConnection ic = new RichInputConnection(ims);
-        final SpacingAndPunctuations sap = mSpacingAndPunctuations;
-
-        ims.setInputConnection(new MockConnection("users", 5));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("users'", 5));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("users'", 6));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("'users'", 6));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("'users'", 7));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("users '", 6));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("users '", 7));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("re-", 3));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("re--", 4));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("-", 1));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection("--", 2));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection(" -", 2));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection(" --", 3));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection(" users '", 1));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection(" users '", 3));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection(" users '", 7));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection(" users are", 7));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertTrue(ic.isCursorTouchingWord(sap));
-
-        ims.setInputConnection(new MockConnection(" users 'are", 7));
-        ic.resetCachesUponCursorMoveAndReturnSuccess(ims.cursorPos(), ims.cursorPos(), true);
-        assertFalse(ic.isCursorTouchingWord(sap));
     }
 }

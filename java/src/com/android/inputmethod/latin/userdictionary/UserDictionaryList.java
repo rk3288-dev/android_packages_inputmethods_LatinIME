@@ -53,24 +53,20 @@ public class UserDictionaryList extends PreferenceFragment {
     }
 
     public static TreeSet<String> getUserDictionaryLocalesSet(Activity activity) {
-        final Cursor cursor = activity.getContentResolver().query(UserDictionary.Words.CONTENT_URI,
+        @SuppressWarnings("deprecation")
+        final Cursor cursor = activity.managedQuery(UserDictionary.Words.CONTENT_URI,
                 new String[] { UserDictionary.Words.LOCALE },
                 null, null, null);
-        final TreeSet<String> localeSet = new TreeSet<>();
+        final TreeSet<String> localeSet = new TreeSet<String>();
         if (null == cursor) {
             // The user dictionary service is not present or disabled. Return null.
             return null;
-        }
-        try {
-            if (cursor.moveToFirst()) {
-                final int columnIndex = cursor.getColumnIndex(UserDictionary.Words.LOCALE);
-                do {
-                    final String locale = cursor.getString(columnIndex);
-                    localeSet.add(null != locale ? locale : "");
-                } while (cursor.moveToNext());
-            }
-        } finally {
-            cursor.close();
+        } else if (cursor.moveToFirst()) {
+            final int columnIndex = cursor.getColumnIndex(UserDictionary.Words.LOCALE);
+            do {
+                final String locale = cursor.getString(columnIndex);
+                localeSet.add(null != locale ? locale : "");
+            } while (cursor.moveToNext());
         }
         if (!UserDictionarySettings.IS_SHORTCUT_API_SUPPORTED) {
             // For ICS, we need to show "For all languages" in case that the keyboard locale

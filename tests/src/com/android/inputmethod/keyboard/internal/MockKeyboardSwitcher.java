@@ -125,9 +125,8 @@ public class MockKeyboardSwitcher implements KeyboardState.SwitchActions {
     }
 
     @Override
-    public void requestUpdatingShiftState(final int currentAutoCapsState,
-            final int currentRecapitalizeState) {
-        mState.onUpdateShiftState(currentAutoCapsState, currentRecapitalizeState);
+    public void requestUpdatingShiftState() {
+        mState.onUpdateShiftState(mAutoCapsState, RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE);
     }
 
     @Override
@@ -145,12 +144,30 @@ public class MockKeyboardSwitcher implements KeyboardState.SwitchActions {
         return mIsInDoubleTapShiftKeyTimeout;
     }
 
+    @Override
+    public void startLongPressTimer(int code) {
+        mLongPressTimeoutCode = code;
+    }
+
+
+    @Override
+    public void cancelLongPressTimer() {
+        mLongPressTimeoutCode = 0;
+    }
+
+
+    @Override
+    public void hapticAndAudioFeedback(int code) {
+        // Nothing to do.
+    }
+
+
     public void updateShiftState() {
         mState.onUpdateShiftState(mAutoCapsState, RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE);
     }
 
     public void loadKeyboard() {
-        mState.onLoadKeyboard(mAutoCapsState, RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE);
+        mState.onLoadKeyboard();
     }
 
     public void saveKeyboardState() {
@@ -158,17 +175,11 @@ public class MockKeyboardSwitcher implements KeyboardState.SwitchActions {
     }
 
     public void onPressKey(final int code, final boolean isSinglePointer) {
-        mState.onPressKey(code, isSinglePointer, mAutoCapsState,
-                RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE);
+        mState.onPressKey(code, isSinglePointer, mAutoCapsState);
     }
 
     public void onReleaseKey(final int code, final boolean withSliding) {
-        onReleaseKey(code, withSliding, mAutoCapsState, RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE);
-    }
-
-    public void onReleaseKey(final int code, final boolean withSliding,
-            final int currentAutoCapsState, final int currentRecapitalizeState) {
-        mState.onReleaseKey(code, withSliding, currentAutoCapsState, currentRecapitalizeState);
+        mState.onReleaseKey(code, withSliding);
         if (mLongPressTimeoutCode == code) {
             mLongPressTimeoutCode = 0;
         }
@@ -183,10 +194,10 @@ public class MockKeyboardSwitcher implements KeyboardState.SwitchActions {
         } else {
             mAutoCapsState = mAutoCapsMode;
         }
-        mState.onCodeInput(code, mAutoCapsState, RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE);
+        mState.onCodeInput(code, mAutoCapsState);
     }
 
     public void onFinishSlidingInput() {
-        mState.onFinishSlidingInput(mAutoCapsState, RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE);
+        mState.onFinishSlidingInput();
     }
 }

@@ -22,26 +22,17 @@ public class ArrayInitializerFormatter {
     private final PrintStream mOut;
     private final int mMaxWidth;
     private final String mIndent;
-    // String resource names array; indexed by {@link #CurrentIndex} and
-    // {@link #mStartIndexOfBuffer}.
-    private final String[] mResourceNames;
 
     private int mCurrentIndex = 0;
-    private String mLastElement;
+    private String mFixedElement;
     private final StringBuilder mBuffer = new StringBuilder();
     private int mBufferedLen;
-    private int mStartIndexOfBuffer = Integer.MIN_VALUE;
+    private int mBufferedIndex = Integer.MIN_VALUE;
 
-    public ArrayInitializerFormatter(final PrintStream out, final int width, final String indent,
-            final String[] resourceNames) {
+    public ArrayInitializerFormatter(PrintStream out, int width, String indent) {
         mOut = out;
         mMaxWidth = width - indent.length();
         mIndent = indent;
-        mResourceNames = resourceNames;
-    }
-
-    public int getCurrentIndex() {
-        return mCurrentIndex;
     }
 
     public void flush() {
@@ -49,48 +40,42 @@ public class ArrayInitializerFormatter {
             return;
         }
         final int lastIndex = mCurrentIndex - 1;
-        if (mStartIndexOfBuffer == lastIndex) {
-            mOut.format("%s/* %s */ %s\n",
-                    mIndent, mResourceNames[mStartIndexOfBuffer], mBuffer);
-        } else if (mStartIndexOfBuffer == lastIndex - 1) {
-            final String startElement = mBuffer.toString()
-                    .substring(0, mBuffer.length() - mLastElement.length())
-                    .trim();
-            mOut.format("%s/* %s */ %s\n"
-                    + "%s/* %s */ %s\n",
-                    mIndent, mResourceNames[mStartIndexOfBuffer], startElement,
-                    mIndent, mResourceNames[lastIndex], mLastElement);
+        if (mBufferedIndex == lastIndex) {
+            mOut.format("%s/* %d */ %s\n", mIndent, mBufferedIndex, mBuffer);
+        } else if (mBufferedIndex == lastIndex - 1) {
+            final String[] elements = mBuffer.toString().split(" ");
+            mOut.format("%s/* %d */ %s\n"
+                    + "%s/* %d */ %s\n",
+                    mIndent, mBufferedIndex, elements[0],
+                    mIndent, lastIndex, elements[1]);
         } else {
-            mOut.format("%s/* %s ~ */\n"
+            mOut.format("%s/* %d~ */\n"
                     + "%s%s\n"
-                    + "%s/* ~ %s */\n",
-                    mIndent, mResourceNames[mStartIndexOfBuffer],
+                    + "%s/* ~%d */\n", mIndent, mBufferedIndex,
                     mIndent, mBuffer,
-                    mIndent, mResourceNames[lastIndex]);
+                    mIndent, lastIndex);
         }
         mBuffer.setLength(0);
         mBufferedLen = 0;
     }
 
-    public void outCommentLines(final String lines) {
+    public void outCommentLines(String lines) {
         flush();
         mOut.print(lines);
-        mLastElement = null;
+        mFixedElement = null;
     }
 
-    public void outElement(final String element) {
-        if (!element.equals(mLastElement)) {
+    public void outElement(String element) {
+        if (!element.equals(mFixedElement)) {
             flush();
-            mStartIndexOfBuffer = mCurrentIndex;
+            mBufferedIndex = mCurrentIndex;
         }
         final int nextLen = mBufferedLen + " ".length() + element.length();
         if (mBufferedLen != 0 && nextLen < mMaxWidth) {
-            // Element can fit in the current line.
             mBuffer.append(' ');
             mBuffer.append(element);
             mBufferedLen = nextLen;
         } else {
-            // Element should be on the next line.
             if (mBufferedLen != 0) {
                 mBuffer.append('\n');
                 mBuffer.append(mIndent);
@@ -99,6 +84,6 @@ public class ArrayInitializerFormatter {
             mBufferedLen = element.length();
         }
         mCurrentIndex++;
-        mLastElement = element;
+        mFixedElement = element;
     }
 }

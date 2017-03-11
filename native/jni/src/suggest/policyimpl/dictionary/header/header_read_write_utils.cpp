@@ -26,13 +26,6 @@
 
 namespace latinime {
 
-// Number of base-10 digits in the largest integer + 1 to leave room for a zero terminator.
-// As such, this is the maximum number of characters will be needed to represent an int as a
-// string, including the terminator; this is used as the size of a string buffer large enough to
-// hold any value that is intended to fit in an integer, e.g. in the code that reads the header
-// of the binary dictionary where a {key,value} string pair scheme is used.
-const int HeaderReadWriteUtils::LARGEST_INT_DIGIT_COUNT = 11;
-
 const int HeaderReadWriteUtils::MAX_ATTRIBUTE_KEY_LENGTH = 256;
 const int HeaderReadWriteUtils::MAX_ATTRIBUTE_VALUE_LENGTH = 256;
 
@@ -42,8 +35,22 @@ const int HeaderReadWriteUtils::HEADER_FLAG_SIZE = 2;
 const int HeaderReadWriteUtils::HEADER_SIZE_FIELD_SIZE = 4;
 
 const HeaderReadWriteUtils::DictionaryFlags HeaderReadWriteUtils::NO_FLAGS = 0;
+// Flags for special processing
+// Those *must* match the flags in makedict (FormatSpec#*_PROCESSING_FLAG) or
+// something very bad (like, the apocalypse) will happen. Please update both at the same time.
+const HeaderReadWriteUtils::DictionaryFlags
+        HeaderReadWriteUtils::GERMAN_UMLAUT_PROCESSING_FLAG = 0x1;
+const HeaderReadWriteUtils::DictionaryFlags
+        HeaderReadWriteUtils::SUPPORTS_DYNAMIC_UPDATE_FLAG = 0x2;
+const HeaderReadWriteUtils::DictionaryFlags
+        HeaderReadWriteUtils::FRENCH_LIGATURE_PROCESSING_FLAG = 0x4;
 
-typedef DictionaryHeaderStructurePolicy::AttributeMap AttributeMap;
+// Note that these are corresponding definitions in Java side in FormatSpec.FileHeader.
+const char *const HeaderReadWriteUtils::SUPPORTS_DYNAMIC_UPDATE_KEY = "SUPPORTS_DYNAMIC_UPDATE";
+const char *const HeaderReadWriteUtils::REQUIRES_GERMAN_UMLAUT_PROCESSING_KEY =
+        "REQUIRES_GERMAN_UMLAUT_PROCESSING";
+const char *const HeaderReadWriteUtils::REQUIRES_FRENCH_LIGATURE_PROCESSING_KEY =
+        "REQUIRES_FRENCH_LIGATURE_PROCESSING";
 
 /* static */ int HeaderReadWriteUtils::getHeaderSize(const uint8_t *const dictBuf) {
     // See the format of the header in the comment in
@@ -60,8 +67,18 @@ typedef DictionaryHeaderStructurePolicy::AttributeMap AttributeMap;
 
 /* static */ HeaderReadWriteUtils::DictionaryFlags
         HeaderReadWriteUtils::createAndGetDictionaryFlagsUsingAttributeMap(
-                const AttributeMap *const attributeMap) {
-    return NO_FLAGS;
+                const HeaderReadWriteUtils::AttributeMap *const attributeMap) {
+    const bool requiresGermanUmlautProcessing = readBoolAttributeValue(attributeMap,
+            REQUIRES_GERMAN_UMLAUT_PROCESSING_KEY, false /* defaultValue */);
+    const bool requiresFrenchLigatureProcessing = readBoolAttributeValue(attributeMap,
+            REQUIRES_FRENCH_LIGATURE_PROCESSING_KEY, false /* defaultValue */);
+    const bool supportsDynamicUpdate = readBoolAttributeValue(attributeMap,
+            SUPPORTS_DYNAMIC_UPDATE_KEY, false /* defaultValue */);
+    DictionaryFlags dictflags = NO_FLAGS;
+    dictflags |= requiresGermanUmlautProcessing ? GERMAN_UMLAUT_PROCESSING_FLAG : 0;
+    dictflags |= requiresFrenchLigatureProcessing ? FRENCH_LIGATURE_PROCESSING_FLAG : 0;
+    dictflags |= supportsDynamicUpdate ? SUPPORTS_DYNAMIC_UPDATE_FLAG : 0;
+    return dictflags;
 }
 
 /* static */ void HeaderReadWriteUtils::fetchAllHeaderAttributes(const uint8_t *const dictBuf,
@@ -98,10 +115,8 @@ typedef DictionaryHeaderStructurePolicy::AttributeMap AttributeMap;
         case FormatUtils::VERSION_2:
             // Version 2 dictionary writing is not supported.
             return false;
-        case FormatUtils::VERSION_4_ONLY_FOR_TESTING:
-        case FormatUtils::VERSION_4:
-        case FormatUtils::VERSION_4_DEV:
-            return buffer->writeUintAndAdvancePosition(version /* data */,
+        case FormatUtils::VERSION_3:
+            return buffer->writeUintAndAdvancePosition(3 /* data */,
                     HEADER_DICTIONARY_VERSION_SIZE, writingPos);
         default:
             return false;
@@ -141,13 +156,6 @@ typedef DictionaryHeaderStructurePolicy::AttributeMap AttributeMap;
     return true;
 }
 
-/* static */ void HeaderReadWriteUtils::setCodePointVectorAttribute(
-        AttributeMap *const headerAttributes, const char *const key, const std::vector<int> value) {
-    AttributeMap::key_type keyVector;
-    insertCharactersIntoVector(key, &keyVector);
-    (*headerAttributes)[keyVector] = value;
-}
-
 /* static */ void HeaderReadWriteUtils::setBoolAttribute(AttributeMap *const headerAttributes,
         const char *const key, const bool value) {
     setIntAttribute(headerAttributes, key, value ? 1 : 0);
@@ -163,22 +171,10 @@ typedef DictionaryHeaderStructurePolicy::AttributeMap AttributeMap;
 /* static */ void HeaderReadWriteUtils::setIntAttributeInner(AttributeMap *const headerAttributes,
         const AttributeMap::key_type *const key, const int value) {
     AttributeMap::mapped_type valueVector;
-    char charBuf[LARGEST_INT_DIGIT_COUNT];
-    snprintf(charBuf, sizeof(charBuf), "%d", value);
+    char charBuf[LARGEST_INT_DIGIT_COUNT + 1];
+    snprintf(charBuf, LARGEST_INT_DIGIT_COUNT + 1, "%d", value);
     insertCharactersIntoVector(charBuf, &valueVector);
     (*headerAttributes)[*key] = valueVector;
-}
-
-/* static */ const std::vector<int> HeaderReadWriteUtils::readCodePointVectorAttributeValue(
-        const AttributeMap *const headerAttributes, const char *const key) {
-    AttributeMap::key_type keyVector;
-    insertCharactersIntoVector(key, &keyVector);
-    AttributeMap::const_iterator it = headerAttributes->find(keyVector);
-    if (it == headerAttributes->end()) {
-        return std::vector<int>();
-    } else {
-        return it->second;
-    }
 }
 
 /* static */ bool HeaderReadWriteUtils::readBoolAttributeValue(

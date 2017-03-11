@@ -16,16 +16,13 @@
 
 #include "suggest/core/layout/proximity_info_state_utils.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstring> // for memset()
 #include <sstream> // for debug prints
-#include <unordered_map>
 #include <vector>
 
 #include "defines.h"
 #include "suggest/core/layout/geometry_utils.h"
-#include "suggest/core/layout/normal_distribution_2d.h"
 #include "suggest/core/layout/proximity_info.h"
 #include "suggest/core/layout/proximity_info_params.h"
 
@@ -189,10 +186,13 @@ namespace latinime {
         const int lastSavedInputSize, const bool isGeometric,
         const std::vector<int> *const sampledInputXs,
         const std::vector<int> *const sampledInputYs,
+        std::vector<NearKeycodesSet> *sampledNearKeySets,
         std::vector<float> *sampledNormalizedSquaredLengthCache) {
+    sampledNearKeySets->resize(sampledInputSize);
     const int keyCount = proximityInfo->getKeyCount();
     sampledNormalizedSquaredLengthCache->resize(sampledInputSize * keyCount);
     for (int i = lastSavedInputSize; i < sampledInputSize; ++i) {
+        (*sampledNearKeySets)[i].reset();
         for (int k = 0; k < keyCount; ++k) {
             const int index = i * keyCount + k;
             const int x = (*sampledInputXs)[i];
@@ -201,6 +201,10 @@ namespace latinime {
                     proximityInfo->getNormalizedSquaredDistanceFromCenterFloatG(
                             k, x, y, isGeometric);
             (*sampledNormalizedSquaredLengthCache)[index] = normalizedSquaredDistance;
+            if (normalizedSquaredDistance
+                    < ProximityInfoParams::NEAR_KEY_NORMALIZED_SQUARED_THRESHOLD) {
+                (*sampledNearKeySets)[i][k] = true;
+            }
         }
     }
 }
@@ -236,7 +240,7 @@ namespace latinime {
         // Calculate velocity by using distances and durations of
         // ProximityInfoParams::NUM_POINTS_FOR_SPEED_CALCULATION points for both forward and
         // backward.
-        const int forwardNumPoints = std::min(inputSize - 1,
+        const int forwardNumPoints = min(inputSize - 1,
                 index + ProximityInfoParams::NUM_POINTS_FOR_SPEED_CALCULATION);
         for (int j = index; j < forwardNumPoints; ++j) {
             if (i < sampledInputSize - 1 && j >= (*sampledInputIndice)[i + 1]) {
@@ -246,7 +250,7 @@ namespace latinime {
                     xCoordinates[j + 1], yCoordinates[j + 1]);
             duration += times[j + 1] - times[j];
         }
-        const int backwardNumPoints = std::max(0,
+        const int backwardNumPoints = max(0,
                 index - ProximityInfoParams::NUM_POINTS_FOR_SPEED_CALCULATION);
         for (int j = index - 1; j >= backwardNumPoints; --j) {
             if (i > 0 && j < (*sampledInputIndice)[i - 1]) {
@@ -268,7 +272,7 @@ namespace latinime {
 
     // Direction calculation.
     sampledDirections->resize(sampledInputSize - 1);
-    for (int i = std::max(0, lastSavedInputSize - 1); i < sampledInputSize - 1; ++i) {
+    for (int i = max(0, lastSavedInputSize - 1); i < sampledInputSize - 1; ++i) {
         (*sampledDirections)[i] = getDirection(sampledInputXs, sampledInputYs, i, i + 1);
     }
     return averageSpeed;
@@ -605,7 +609,7 @@ namespace latinime {
         const int inputIndex, const int keyId) {
     if (keyId != NOT_AN_INDEX) {
         const int index = inputIndex * keyCount + keyId;
-        return std::min((*sampledNormalizedSquaredLengthCache)[index], maxPointToKeyLength);
+        return min((*sampledNormalizedSquaredLengthCache)[index], maxPointToKeyLength);
     }
     // If the char is not a key on the keyboard then return the max length.
     return static_cast<float>(MAX_VALUE_FOR_WEIGHTING);
@@ -620,8 +624,8 @@ namespace latinime {
         const std::vector<float> *const sampledSpeedRates,
         const std::vector<int> *const sampledLengthCache,
         const std::vector<float> *const sampledNormalizedSquaredLengthCache,
-        const ProximityInfo *const proximityInfo,
-        std::vector<std::unordered_map<int, float>> *charProbabilities) {
+        std::vector<NearKeycodesSet> *sampledNearKeySets,
+        std::vector<hash_map_compat<int, float> > *charProbabilities) {
     charProbabilities->resize(sampledInputSize);
     // Calculates probabilities of using a point as a correlated point with the character
     // for each point.
@@ -636,21 +640,23 @@ namespace latinime {
 
         float nearestKeyDistance = static_cast<float>(MAX_VALUE_FOR_WEIGHTING);
         for (int j = 0; j < keyCount; ++j) {
-            const float distance = getPointToKeyByIdLength(
-                    maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount, i, j);
-            if (distance < nearestKeyDistance) {
-                nearestKeyDistance = distance;
+            if ((*sampledNearKeySets)[i].test(j)) {
+                const float distance = getPointToKeyByIdLength(
+                        maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount, i, j);
+                if (distance < nearestKeyDistance) {
+                    nearestKeyDistance = distance;
+                }
             }
         }
 
         if (i == 0) {
-            skipProbability *= std::min(1.0f,
+            skipProbability *= min(1.0f,
                     nearestKeyDistance * ProximityInfoParams::NEAREST_DISTANCE_WEIGHT
                             + ProximityInfoParams::NEAREST_DISTANCE_BIAS);
             // Promote the first point
             skipProbability *= ProximityInfoParams::SKIP_FIRST_POINT_PROBABILITY;
         } else if (i == sampledInputSize - 1) {
-            skipProbability *= std::min(1.0f,
+            skipProbability *= min(1.0f,
                     nearestKeyDistance * ProximityInfoParams::NEAREST_DISTANCE_WEIGHT_FOR_LAST
                             + ProximityInfoParams::NEAREST_DISTANCE_BIAS_FOR_LAST);
             // Promote the last point
@@ -661,17 +667,17 @@ namespace latinime {
                     && speedRate
                             < (*sampledSpeedRates)[i + 1] - ProximityInfoParams::SPEED_MARGIN) {
                 if (currentAngle < ProximityInfoParams::CORNER_ANGLE_THRESHOLD) {
-                    skipProbability *= std::min(1.0f, speedRate
+                    skipProbability *= min(1.0f, speedRate
                             * ProximityInfoParams::SLOW_STRAIGHT_WEIGHT_FOR_SKIP_PROBABILITY);
                 } else {
                     // If the angle is small enough, we promote this point more. (e.g. pit vs put)
-                    skipProbability *= std::min(1.0f,
+                    skipProbability *= min(1.0f,
                             speedRate * ProximityInfoParams::SPEED_WEIGHT_FOR_SKIP_PROBABILITY
                                     + ProximityInfoParams::MIN_SPEED_RATE_FOR_SKIP_PROBABILITY);
                 }
             }
 
-            skipProbability *= std::min(1.0f,
+            skipProbability *= min(1.0f,
                     speedRate * nearestKeyDistance * ProximityInfoParams::NEAREST_DISTANCE_WEIGHT
                             + ProximityInfoParams::NEAREST_DISTANCE_BIAS);
 
@@ -701,57 +707,93 @@ namespace latinime {
         // (1.0f - skipProbability).
         const float inputCharProbability = 1.0f - skipProbability;
 
-        const float speedMultipliedByAngleRate = std::min(speedRate * currentAngle / M_PI_F
+        const float speedxAngleRate = min(speedRate * currentAngle / M_PI_F
                 * ProximityInfoParams::SPEEDxANGLE_WEIGHT_FOR_STANDARD_DEVIATION,
                         ProximityInfoParams::MAX_SPEEDxANGLE_RATE_FOR_STANDARD_DEVIATION);
-        const float speedMultipliedByNearestKeyDistanceRate = std::min(
-                speedRate * nearestKeyDistance
-                        * ProximityInfoParams::SPEEDxNEAREST_WEIGHT_FOR_STANDARD_DEVIATION,
-                                ProximityInfoParams::MAX_SPEEDxNEAREST_RATE_FOR_STANDARD_DEVIATION);
-        const float sigma = (speedMultipliedByAngleRate + speedMultipliedByNearestKeyDistanceRate
-                + ProximityInfoParams::MIN_STANDARD_DEVIATION) * mostCommonKeyWidth;
-        float theta = 0.0f;
-        // TODO: Use different metrics to compute sigmas.
-        float sigmaX = sigma;
-        float sigmaY = sigma;
-        if (i == 0 && i != sampledInputSize - 1) {
-            // First point
-            theta = getDirection(sampledInputXs, sampledInputYs, i + 1, i);
-            sigmaX *= ProximityInfoParams::STANDARD_DEVIATION_X_WEIGHT_FOR_FIRST;
-            sigmaY *= ProximityInfoParams::STANDARD_DEVIATION_Y_WEIGHT_FOR_FIRST;
-        } else {
-            if (i == sampledInputSize - 1) {
-                // Last point
-                sigmaX *= ProximityInfoParams::STANDARD_DEVIATION_X_WEIGHT_FOR_LAST;
-                sigmaY *= ProximityInfoParams::STANDARD_DEVIATION_Y_WEIGHT_FOR_LAST;
-            } else {
-                sigmaX *= ProximityInfoParams::STANDARD_DEVIATION_X_WEIGHT;
-                sigmaY *= ProximityInfoParams::STANDARD_DEVIATION_Y_WEIGHT;
-            }
-            theta = getDirection(sampledInputXs, sampledInputYs, i, i - 1);
-        }
-        NormalDistribution2D distribution((*sampledInputXs)[i], sigmaX, (*sampledInputYs)[i],
-                sigmaY, theta);
+        const float speedxNearestKeyDistanceRate = min(speedRate * nearestKeyDistance
+                * ProximityInfoParams::SPEEDxNEAREST_WEIGHT_FOR_STANDARD_DEVIATION,
+                        ProximityInfoParams::MAX_SPEEDxNEAREST_RATE_FOR_STANDARD_DEVIATION);
+        const float sigma = speedxAngleRate + speedxNearestKeyDistanceRate
+                + ProximityInfoParams::MIN_STANDARD_DEVIATION;
+
+        ProximityInfoUtils::NormalDistribution
+                distribution(ProximityInfoParams::CENTER_VALUE_OF_NORMALIZED_DISTRIBUTION, sigma);
         // Summing up probability densities of all near keys.
         float sumOfProbabilityDensities = 0.0f;
         for (int j = 0; j < keyCount; ++j) {
-            sumOfProbabilityDensities += distribution.getProbabilityDensity(
-                    proximityInfo->getKeyCenterXOfKeyIdG(j,
-                            NOT_A_COORDINATE /* referencePointX */, true /* isGeometric */),
-                    proximityInfo->getKeyCenterYOfKeyIdG(j,
-                            NOT_A_COORDINATE /* referencePointY */, true /* isGeometric */));
+            if ((*sampledNearKeySets)[i].test(j)) {
+                float distance = sqrtf(getPointToKeyByIdLength(
+                        maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount, i, j));
+                if (i == 0 && i != sampledInputSize - 1) {
+                    // For the first point, weighted average of distances from first point and the
+                    // next point to the key is used as a point to key distance.
+                    const float nextDistance = sqrtf(getPointToKeyByIdLength(
+                            maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount,
+                            i + 1, j));
+                    if (nextDistance < distance) {
+                        // The distance of the first point tends to bigger than continuing
+                        // points because the first touch by the user can be sloppy.
+                        // So we promote the first point if the distance of that point is larger
+                        // than the distance of the next point.
+                        distance = (distance
+                                + nextDistance * ProximityInfoParams::NEXT_DISTANCE_WEIGHT)
+                                        / (1.0f + ProximityInfoParams::NEXT_DISTANCE_WEIGHT);
+                    }
+                } else if (i != 0 && i == sampledInputSize - 1) {
+                    // For the first point, weighted average of distances from last point and
+                    // the previous point to the key is used as a point to key distance.
+                    const float previousDistance = sqrtf(getPointToKeyByIdLength(
+                            maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount,
+                            i - 1, j));
+                    if (previousDistance < distance) {
+                        // The distance of the last point tends to bigger than continuing points
+                        // because the last touch by the user can be sloppy. So we promote the
+                        // last point if the distance of that point is larger than the distance of
+                        // the previous point.
+                        distance = (distance
+                                + previousDistance * ProximityInfoParams::PREV_DISTANCE_WEIGHT)
+                                        / (1.0f + ProximityInfoParams::PREV_DISTANCE_WEIGHT);
+                    }
+                }
+                // TODO: Promote the first point when the extended line from the next input is near
+                // from a key. Also, promote the last point as well.
+                sumOfProbabilityDensities += distribution.getProbabilityDensity(distance);
+            }
         }
 
         // Split the probability of an input point to keys that are close to the input point.
         for (int j = 0; j < keyCount; ++j) {
-            const float probabilityDensity = distribution.getProbabilityDensity(
-                    proximityInfo->getKeyCenterXOfKeyIdG(j,
-                            NOT_A_COORDINATE /* referencePointX */, true /* isGeometric */),
-                    proximityInfo->getKeyCenterYOfKeyIdG(j,
-                            NOT_A_COORDINATE /* referencePointY */, true /* isGeometric */));
-            const float probability = inputCharProbability * probabilityDensity
-                    / sumOfProbabilityDensities;
-            (*charProbabilities)[i][j] = probability;
+            if ((*sampledNearKeySets)[i].test(j)) {
+                float distance = sqrtf(getPointToKeyByIdLength(
+                        maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount, i, j));
+                if (i == 0 && i != sampledInputSize - 1) {
+                    // For the first point, weighted average of distances from the first point and
+                    // the next point to the key is used as a point to key distance.
+                    const float prevDistance = sqrtf(getPointToKeyByIdLength(
+                            maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount,
+                            i + 1, j));
+                    if (prevDistance < distance) {
+                        distance = (distance
+                                + prevDistance * ProximityInfoParams::NEXT_DISTANCE_WEIGHT)
+                                        / (1.0f + ProximityInfoParams::NEXT_DISTANCE_WEIGHT);
+                    }
+                } else if (i != 0 && i == sampledInputSize - 1) {
+                    // For the first point, weighted average of distances from last point and
+                    // the previous point to the key is used as a point to key distance.
+                    const float prevDistance = sqrtf(getPointToKeyByIdLength(
+                            maxPointToKeyLength, sampledNormalizedSquaredLengthCache, keyCount,
+                            i - 1, j));
+                    if (prevDistance < distance) {
+                        distance = (distance
+                                + prevDistance * ProximityInfoParams::PREV_DISTANCE_WEIGHT)
+                                        / (1.0f + ProximityInfoParams::PREV_DISTANCE_WEIGHT);
+                    }
+                }
+                const float probabilityDensity = distribution.getProbabilityDensity(distance);
+                const float probability = inputCharProbability * probabilityDensity
+                        / sumOfProbabilityDensities;
+                (*charProbabilities)[i][j] = probability;
+            }
         }
     }
 
@@ -763,7 +805,7 @@ namespace latinime {
             sstream << "Speed: "<< (*sampledSpeedRates)[i] << ", ";
             sstream << "Angle: "<< getPointAngle(sampledInputXs, sampledInputYs, i) << ", \n";
 
-            for (std::unordered_map<int, float>::iterator it = (*charProbabilities)[i].begin();
+            for (hash_map_compat<int, float>::iterator it = (*charProbabilities)[i].begin();
                     it != (*charProbabilities)[i].end(); ++it) {
                 if (it->first == NOT_AN_INDEX) {
                     sstream << it->first
@@ -785,7 +827,7 @@ namespace latinime {
 
     // Decrease key probabilities of points which don't have the highest probability of that key
     // among nearby points. Probabilities of the first point and the last point are not suppressed.
-    for (int i = std::max(start, 1); i < sampledInputSize; ++i) {
+    for (int i = max(start, 1); i < sampledInputSize; ++i) {
         for (int j = i + 1; j < sampledInputSize; ++j) {
             if (!suppressCharProbabilities(
                     mostCommonKeyWidth, sampledInputSize, sampledLengthCache, i, j,
@@ -793,7 +835,7 @@ namespace latinime {
                 break;
             }
         }
-        for (int j = i - 1; j >= std::max(start, 0); --j) {
+        for (int j = i - 1; j >= max(start, 0); --j) {
             if (!suppressCharProbabilities(
                     mostCommonKeyWidth, sampledInputSize, sampledLengthCache, i, j,
                     charProbabilities)) {
@@ -805,11 +847,12 @@ namespace latinime {
     // Converting from raw probabilities to log probabilities to calculate spatial distance.
     for (int i = start; i < sampledInputSize; ++i) {
         for (int j = 0; j < keyCount; ++j) {
-            std::unordered_map<int, float>::iterator it = (*charProbabilities)[i].find(j);
+            hash_map_compat<int, float>::iterator it = (*charProbabilities)[i].find(j);
             if (it == (*charProbabilities)[i].end()){
-                continue;
+                (*sampledNearKeySets)[i].reset(j);
             } else if(it->second < ProximityInfoParams::MIN_PROBABILITY) {
                 // Erases from near keys vector because it has very low probability.
+                (*sampledNearKeySets)[i].reset(j);
                 (*charProbabilities)[i].erase(j);
             } else {
                 it->second = -logf(it->second);
@@ -821,10 +864,11 @@ namespace latinime {
 
 /* static */ void ProximityInfoStateUtils::updateSampledSearchKeySets(
         const ProximityInfo *const proximityInfo, const int sampledInputSize,
-        const int lastSavedInputSize, const std::vector<int> *const sampledLengthCache,
-        const std::vector<std::unordered_map<int, float>> *const charProbabilities,
+        const int lastSavedInputSize,
+        const std::vector<int> *const sampledLengthCache,
+        const std::vector<NearKeycodesSet> *const sampledNearKeySets,
         std::vector<NearKeycodesSet> *sampledSearchKeySets,
-        std::vector<std::vector<int>> *sampledSearchKeyVectors) {
+        std::vector<std::vector<int> > *sampledSearchKeyVectors) {
     sampledSearchKeySets->resize(sampledInputSize);
     sampledSearchKeyVectors->resize(sampledInputSize);
     const int readForwordLength = static_cast<int>(
@@ -834,17 +878,12 @@ namespace latinime {
         if (i >= lastSavedInputSize) {
             (*sampledSearchKeySets)[i].reset();
         }
-        for (int j = std::max(i, lastSavedInputSize); j < sampledInputSize; ++j) {
+        for (int j = max(i, lastSavedInputSize); j < sampledInputSize; ++j) {
             // TODO: Investigate if this is required. This may not fail.
             if ((*sampledLengthCache)[j] - (*sampledLengthCache)[i] >= readForwordLength) {
                 break;
             }
-            for(const auto& charProbability : charProbabilities->at(j)) {
-                if (charProbability.first == NOT_AN_INDEX) {
-                    continue;
-                }
-                (*sampledSearchKeySets)[i].set(charProbability.first);
-            }
+            (*sampledSearchKeySets)[i] |= (*sampledNearKeySets)[j];
         }
     }
     const int keyCount = proximityInfo->getKeyCount();
@@ -868,7 +907,7 @@ namespace latinime {
 /* static */ bool ProximityInfoStateUtils::suppressCharProbabilities(const int mostCommonKeyWidth,
         const int sampledInputSize, const std::vector<int> *const lengthCache,
         const int index0, const int index1,
-        std::vector<std::unordered_map<int, float>> *charProbabilities) {
+        std::vector<hash_map_compat<int, float> > *charProbabilities) {
     ASSERT(0 <= index0 && index0 < sampledInputSize);
     ASSERT(0 <= index1 && index1 < sampledInputSize);
     const float keyWidthFloat = static_cast<float>(mostCommonKeyWidth);
@@ -879,9 +918,9 @@ namespace latinime {
     const float suppressionRate = ProximityInfoParams::MIN_SUPPRESSION_RATE
             + diff / keyWidthFloat / ProximityInfoParams::SUPPRESSION_LENGTH_WEIGHT
                     * ProximityInfoParams::SUPPRESSION_WEIGHT;
-    for (std::unordered_map<int, float>::iterator it = (*charProbabilities)[index0].begin();
+    for (hash_map_compat<int, float>::iterator it = (*charProbabilities)[index0].begin();
             it != (*charProbabilities)[index0].end(); ++it) {
-        std::unordered_map<int, float>::iterator it2 = (*charProbabilities)[index1].find(it->first);
+        hash_map_compat<int, float>::iterator it2 =  (*charProbabilities)[index1].find(it->first);
         if (it2 != (*charProbabilities)[index1].end() && it->second < it2->second) {
             const float newProbability = it->second * suppressionRate;
             const float suppression = it->second - newProbability;
@@ -890,7 +929,7 @@ namespace latinime {
             (*charProbabilities)[index0][NOT_AN_INDEX] += suppression;
 
             // Add the probability of the same key nearby index1
-            const float probabilityGain = std::min(suppression
+            const float probabilityGain = min(suppression
                     * ProximityInfoParams::SUPPRESSION_WEIGHT_FOR_PROBABILITY_GAIN,
                     (*charProbabilities)[index1][NOT_AN_INDEX]
                             * ProximityInfoParams::SKIP_PROBABALITY_WEIGHT_FOR_PROBABILITY_GAIN);
@@ -933,7 +972,7 @@ namespace latinime {
 // returns probability of generating the word.
 /* static */ float ProximityInfoStateUtils::getMostProbableString(
         const ProximityInfo *const proximityInfo, const int sampledInputSize,
-        const std::vector<std::unordered_map<int, float>> *const charProbabilities,
+        const std::vector<hash_map_compat<int, float> > *const charProbabilities,
         int *const codePointBuf) {
     ASSERT(sampledInputSize >= 0);
     memset(codePointBuf, 0, sizeof(codePointBuf[0]) * MAX_WORD_LENGTH);
@@ -943,7 +982,7 @@ namespace latinime {
     for (int i = 0; i < sampledInputSize && index < MAX_WORD_LENGTH - 1; ++i) {
         float minLogProbability = static_cast<float>(MAX_VALUE_FOR_WEIGHTING);
         int character = NOT_AN_INDEX;
-        for (std::unordered_map<int, float>::const_iterator it = (*charProbabilities)[i].begin();
+        for (hash_map_compat<int, float>::const_iterator it = (*charProbabilities)[i].begin();
                 it != (*charProbabilities)[i].end(); ++it) {
             const float logProbability = (it->first != NOT_AN_INDEX)
                     ? it->second + ProximityInfoParams::DEMOTION_LOG_PROBABILITY : it->second;
@@ -953,16 +992,7 @@ namespace latinime {
             }
         }
         if (character != NOT_AN_INDEX) {
-            const int codePoint = proximityInfo->getCodePointOf(character);
-            if (codePoint == NOT_A_CODE_POINT) {
-                AKLOGE("Key index(%d) is not found. Cannot construct most probable string",
-                        character);
-                ASSERT(false);
-                // Make the length zero, which means most probable string won't be used.
-                index = 0;
-                break;
-            }
-            codePointBuf[index] = codePoint;
+            codePointBuf[index] = proximityInfo->getCodePointOf(character);
             index++;
         }
         sumLogProbability += minLogProbability;

@@ -27,16 +27,16 @@
         latin:keyboardLayout="@xml/key_styles_number" />
     <Row>
         <Key
-            latin:keySpec="("
+            latin:keyLabel="("
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="/"
+            latin:keyLabel="/"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec=")"
+            latin:keyLabel=")"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="-"
+            latin:keyLabel="-"
             latin:moreKeys="+"
             latin:keyLabelFlags="hasPopupHint"
             latin:keyStyle="numFunctionalKeyStyle"
@@ -44,17 +44,17 @@
     </Row>
     <Row>
         <Key
-            latin:keySpec="N"
+            latin:keyLabel="N"
             latin:keyStyle="numKeyBaseStyle" />
         <!-- Pause is a comma. Check PhoneNumberUtils.java to see if this
             has changed. -->
         <Key
             latin:keyStyle="numPauseKeyStyle" />
         <Key
-            latin:keySpec=","
+            latin:keyLabel=","
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="."
+            latin:keyLabel="."
             latin:keyStyle="numFunctionalKeyStyle"
             latin:keyWidth="fillRight" />
     </Row>
@@ -65,7 +65,7 @@
         <Key
             latin:keyStyle="numWaitKeyStyle" />
         <Key
-            latin:keySpec="\#"
+            latin:keyLabel="\#"
             latin:keyStyle="numKeyStyle" />
         <Key
             latin:keyStyle="deleteKeyStyle"
@@ -75,7 +75,7 @@
         <Key
             latin:keyStyle="numPhoneToNumericKeyStyle" />
         <Key
-            latin:keySpec="+"
+            latin:keyLabel="+"
             latin:keyStyle="numKeyStyle" />
         <Key
             latin:keyStyle="numSpaceKeyStyle" />

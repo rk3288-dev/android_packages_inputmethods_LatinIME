@@ -26,8 +26,19 @@
     <Row
         latin:keyWidth="7.0%p"
     >
-        <include
-            latin:keyboardLayout="@xml/rowkeys_pcqwerty1" />
+        <switch>
+            <case
+                latin:keyboardLayoutSetElement="alphabet|alphabetAutomaticShifted"
+            >
+                <include
+                    latin:keyboardLayout="@xml/rowkeys_pcqwerty1" />
+            </case>
+            <!-- keyboardLayoutSetElement="alphabetManualShifted|alphabetShiftLocked|alphabetShiftLockShifted" -->
+            <default>
+                <include
+                     latin:keyboardLayout="@xml/rowkeys_pcqwerty1_shift" />
+            </default>
+        </switch>
         <Key
             latin:keyStyle="deleteKeyStyle"
             latin:keyWidth="fillRight" />
@@ -45,7 +56,7 @@
         latin:keyWidth="7.0%p"
     >
         <Spacer
-            latin:keyWidth="10.0%p" />
+            latin:keyWidth="12.0%p" />
         <include
             latin:keyboardLayout="@xml/rowkeys_pcqwerty3" />
         <Key

@@ -20,14 +20,11 @@ import android.content.Context;
 import android.util.AttributeSet;
 import android.util.Log;
 
-import com.android.inputmethod.keyboard.Key;
 import com.android.inputmethod.keyboard.Keyboard;
-import com.android.inputmethod.keyboard.KeyboardActionListener;
 import com.android.inputmethod.keyboard.MoreKeysKeyboardView;
 import com.android.inputmethod.latin.R;
 import com.android.inputmethod.latin.SuggestedWords;
-import com.android.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
-import com.android.inputmethod.latin.suggestions.MoreSuggestions.MoreSuggestionKey;
+import com.android.inputmethod.latin.suggestions.MoreSuggestions.MoreSuggestionsListener;
 
 /**
  * A view that renders a virtual {@link MoreSuggestions}. It handles rendering of keys and detecting
@@ -36,10 +33,6 @@ import com.android.inputmethod.latin.suggestions.MoreSuggestions.MoreSuggestionK
 public final class MoreSuggestionsView extends MoreKeysKeyboardView {
     private static final String TAG = MoreSuggestionsView.class.getSimpleName();
 
-    public static abstract class MoreSuggestionsListener extends KeyboardActionListener.Adapter {
-        public abstract void onSuggestionSelected(final SuggestedWordInfo info);
-    }
-
     public MoreSuggestionsView(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.attr.moreKeysKeyboardViewStyle);
     }
@@ -47,21 +40,6 @@ public final class MoreSuggestionsView extends MoreKeysKeyboardView {
     public MoreSuggestionsView(final Context context, final AttributeSet attrs,
             final int defStyle) {
         super(context, attrs, defStyle);
-    }
-
-    // TODO: Remove redundant override method.
-    @Override
-    public void setKeyboard(final Keyboard keyboard) {
-        super.setKeyboard(keyboard);
-        // With accessibility mode off, {@link #mAccessibilityDelegate} is set to null at the
-        // above {@link MoreKeysKeyboardView#setKeyboard(Keyboard)} call.
-        // With accessibility mode on, {@link #mAccessibilityDelegate} is set to a
-        // {@link MoreKeysKeyboardAccessibilityDelegate} object at the above
-        // {@link MoreKeysKeyboardView#setKeyboard(Keyboard)} call.
-        if (mAccessibilityDelegate != null) {
-            mAccessibilityDelegate.setOpenAnnounce(R.string.spoken_open_more_suggestions);
-            mAccessibilityDelegate.setCloseAnnounce(R.string.spoken_close_more_suggestions);
-        }
     }
 
     @Override
@@ -76,17 +54,12 @@ public final class MoreSuggestionsView extends MoreKeysKeyboardView {
 
     public void adjustVerticalCorrectionForModalMode() {
         // Set vertical correction to zero (Reset more keys keyboard sliding allowance
-        // {@link R#dimen.config_more_keys_keyboard_slide_allowance}).
+        // {@link R#dimen.more_keys_keyboard_slide_allowance}).
         mKeyDetector.setKeyboard(getKeyboard(), -getPaddingLeft(), -getPaddingTop());
     }
 
     @Override
-    protected void onKeyInput(final Key key, final int x, final int y) {
-        if (!(key instanceof MoreSuggestionKey)) {
-            Log.e(TAG, "Expected key is MoreSuggestionKey, but found "
-                    + key.getClass().getName());
-            return;
-        }
+    public void onCodeInput(final int code, final int x, final int y) {
         final Keyboard keyboard = getKeyboard();
         if (!(keyboard instanceof MoreSuggestions)) {
             Log.e(TAG, "Expected keyboard is MoreSuggestions, but found "
@@ -94,7 +67,7 @@ public final class MoreSuggestionsView extends MoreKeysKeyboardView {
             return;
         }
         final SuggestedWords suggestedWords = ((MoreSuggestions)keyboard).mSuggestedWords;
-        final int index = ((MoreSuggestionKey)key).mSuggestedWordIndex;
+        final int index = code - MoreSuggestions.SUGGESTION_CODE_BASE;
         if (index < 0 || index >= suggestedWords.size()) {
             Log.e(TAG, "Selected suggestion has an illegal index: " + index);
             return;
@@ -104,6 +77,7 @@ public final class MoreSuggestionsView extends MoreKeysKeyboardView {
                     + mListener.getClass().getName());
             return;
         }
-        ((MoreSuggestionsListener)mListener).onSuggestionSelected(suggestedWords.getInfo(index));
+        ((MoreSuggestionsListener)mListener).onSuggestionSelected(
+                index, suggestedWords.getInfo(index));
     }
 }

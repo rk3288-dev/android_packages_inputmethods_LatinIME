@@ -18,6 +18,8 @@ package com.android.inputmethod.keyboard.internal;
 
 import android.util.Log;
 
+import com.android.inputmethod.latin.utils.CollectionUtils;
+
 import java.util.ArrayList;
 
 public final class PointerTrackerQueue {
@@ -26,7 +28,7 @@ public final class PointerTrackerQueue {
 
     public interface Element {
         public boolean isModifier();
-        public boolean isInDraggingFinger();
+        public boolean isInSlidingKeyInput();
         public void onPhantomUpEvent(long eventTime);
         public void cancelTrackingForAction();
     }
@@ -35,7 +37,7 @@ public final class PointerTrackerQueue {
     // Note: {@link #mExpandableArrayOfActivePointers} and {@link #mArraySize} are synchronized by
     // {@link #mExpandableArrayOfActivePointers}
     private final ArrayList<Element> mExpandableArrayOfActivePointers =
-            new ArrayList<>(INITIAL_CAPACITY);
+            CollectionUtils.newArrayList(INITIAL_CAPACITY);
     private int mArraySize = 0;
 
     public int size() {
@@ -191,13 +193,13 @@ public final class PointerTrackerQueue {
         }
     }
 
-    public boolean isAnyInDraggingFinger() {
+    public boolean isAnyInSlidingKeyInput() {
         synchronized (mExpandableArrayOfActivePointers) {
             final ArrayList<Element> expandableArray = mExpandableArrayOfActivePointers;
             final int arraySize = mArraySize;
             for (int index = 0; index < arraySize; index++) {
                 final Element element = expandableArray.get(index);
-                if (element.isInDraggingFinger()) {
+                if (element.isInSlidingKeyInput()) {
                     return true;
                 }
             }

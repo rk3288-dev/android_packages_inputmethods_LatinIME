@@ -21,9 +21,8 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 public class Package {
     private Package() {
@@ -87,13 +86,9 @@ public class Package {
             }
             System.out.println("Packaging : " + decodedSpec.describeChain());
             System.out.println("Uncompressed size : " + decodedSpec.mFile.length());
-            try (
-                final InputStream input = getFileInputStream(decodedSpec.mFile);
-                final OutputStream output = new BufferedOutputStream(
-                        getFileOutputStreamOrStdOut(mArgs[1]))
-            ) {
-                BinaryDictOffdeviceUtils.copy(input, output);
-            }
+            final FileOutputStream dstStream = new FileOutputStream(new File(mArgs[1]));
+            BinaryDictOffdeviceUtils.copy(new BufferedInputStream(
+                    new FileInputStream(decodedSpec.mFile)), new BufferedOutputStream(dstStream));
         }
     }
 }

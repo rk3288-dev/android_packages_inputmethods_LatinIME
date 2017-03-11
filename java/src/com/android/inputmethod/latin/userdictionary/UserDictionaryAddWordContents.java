@@ -167,9 +167,7 @@ public class UserDictionaryAddWordContents {
         // should not insert, because either A. the word exists with no shortcut, in which
         // case the exact same thing we want to insert is already there, or B. the word
         // exists with at least one shortcut, in which case it has priority on our word.
-        if (TextUtils.isEmpty(newShortcut) && hasWord(newWord, context)) {
-            return CODE_ALREADY_PRESENT;
-        }
+        if (hasWord(newWord, context)) return CODE_ALREADY_PRESENT;
 
         // Disallow duplicates. If the same word with no shortcut is defined, remove it; if
         // the same word with the same shortcut is defined, remove it; but we don't mind if
@@ -258,7 +256,7 @@ public class UserDictionaryAddWordContents {
         // The system locale should be inside. We want it at the 2nd spot.
         locales.remove(systemLocale); // system locale may not be null
         locales.remove(""); // Remove the empty string if it's there
-        final ArrayList<LocaleRenderer> localesList = new ArrayList<>();
+        final ArrayList<LocaleRenderer> localesList = new ArrayList<LocaleRenderer>();
         // Add the passed locale, then the system locale at the top of the list. Add an
         // "all languages" entry at the bottom of the list.
         addLocaleDisplayNameToList(activity, localesList, mLocale);

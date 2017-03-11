@@ -54,7 +54,6 @@
     </Row>
     <Row
         latin:keyWidth="10%p"
-        latin:backgroundType="functional"
     >
         <Key
             latin:keyStyle="toAlphaKeyStyle"

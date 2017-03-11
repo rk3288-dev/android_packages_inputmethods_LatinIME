@@ -16,7 +16,6 @@
 
 package com.android.inputmethod.latin.spellcheck;
 
-import android.content.res.Resources;
 import android.os.Binder;
 import android.text.TextUtils;
 import android.util.Log;
@@ -24,35 +23,31 @@ import android.view.textservice.SentenceSuggestionsInfo;
 import android.view.textservice.SuggestionsInfo;
 import android.view.textservice.TextInfo;
 
-import com.android.inputmethod.compat.TextInfoCompatUtils;
-import com.android.inputmethod.latin.PrevWordsInfo;
-import com.android.inputmethod.latin.utils.StringUtils;
+import com.android.inputmethod.latin.utils.CollectionUtils;
 
 import java.util.ArrayList;
-import java.util.Locale;
 
 public final class AndroidSpellCheckerSession extends AndroidWordLevelSpellCheckerSession {
     private static final String TAG = AndroidSpellCheckerSession.class.getSimpleName();
     private static final boolean DBG = false;
-    private final Resources mResources;
-    private SentenceLevelAdapter mSentenceLevelAdapter;
+    private final static String[] EMPTY_STRING_ARRAY = new String[0];
 
     public AndroidSpellCheckerSession(AndroidSpellCheckerService service) {
         super(service);
-        mResources = service.getResources();
     }
 
     private SentenceSuggestionsInfo fixWronglyInvalidatedWordWithSingleQuote(TextInfo ti,
             SentenceSuggestionsInfo ssi) {
-        final CharSequence typedText = TextInfoCompatUtils.getCharSequenceOrString(ti);
-        if (!typedText.toString().contains(AndroidSpellCheckerService.SINGLE_QUOTE)) {
+        final String typedText = ti.getText();
+        if (!typedText.contains(AndroidSpellCheckerService.SINGLE_QUOTE)) {
             return null;
         }
         final int N = ssi.getSuggestionsCount();
-        final ArrayList<Integer> additionalOffsets = new ArrayList<>();
-        final ArrayList<Integer> additionalLengths = new ArrayList<>();
-        final ArrayList<SuggestionsInfo> additionalSuggestionsInfos = new ArrayList<>();
-        CharSequence currentWord = null;
+        final ArrayList<Integer> additionalOffsets = CollectionUtils.newArrayList();
+        final ArrayList<Integer> additionalLengths = CollectionUtils.newArrayList();
+        final ArrayList<SuggestionsInfo> additionalSuggestionsInfos =
+                CollectionUtils.newArrayList();
+        String currentWord = null;
         for (int i = 0; i < N; ++i) {
             final SuggestionsInfo si = ssi.getSuggestionsInfoAt(i);
             final int flags = si.getSuggestionsAttributes();
@@ -61,33 +56,31 @@ public final class AndroidSpellCheckerSession extends AndroidWordLevelSpellCheck
             }
             final int offset = ssi.getOffsetAt(i);
             final int length = ssi.getLengthAt(i);
-            final CharSequence subText = typedText.subSequence(offset, offset + length);
-            final PrevWordsInfo prevWordsInfo =
-                    new PrevWordsInfo(new PrevWordsInfo.WordInfo(currentWord));
+            final String subText = typedText.substring(offset, offset + length);
+            final String prevWord = currentWord;
             currentWord = subText;
-            if (!subText.toString().contains(AndroidSpellCheckerService.SINGLE_QUOTE)) {
+            if (!subText.contains(AndroidSpellCheckerService.SINGLE_QUOTE)) {
                 continue;
             }
-            final CharSequence[] splitTexts = StringUtils.split(subText,
-                    AndroidSpellCheckerService.SINGLE_QUOTE,
-                    true /* preserveTrailingEmptySegments */ );
+            final String[] splitTexts =
+                    subText.split(AndroidSpellCheckerService.SINGLE_QUOTE, -1);
             if (splitTexts == null || splitTexts.length <= 1) {
                 continue;
             }
             final int splitNum = splitTexts.length;
             for (int j = 0; j < splitNum; ++j) {
-                final CharSequence splitText = splitTexts[j];
+                final String splitText = splitTexts[j];
                 if (TextUtils.isEmpty(splitText)) {
                     continue;
                 }
-                if (mSuggestionsCache.getSuggestionsFromCache(splitText.toString(), prevWordsInfo)
-                        == null) {
+                if (mSuggestionsCache.getSuggestionsFromCache(splitText, prevWord) == null) {
                     continue;
                 }
                 final int newLength = splitText.length();
                 // Neither RESULT_ATTR_IN_THE_DICTIONARY nor RESULT_ATTR_LOOKS_LIKE_TYPO
                 final int newFlags = 0;
-                final SuggestionsInfo newSi = new SuggestionsInfo(newFlags, EMPTY_STRING_ARRAY);
+                final SuggestionsInfo newSi =
+                        new SuggestionsInfo(newFlags, EMPTY_STRING_ARRAY);
                 newSi.setCookieAndSequence(si.getCookie(), si.getSequence());
                 if (DBG) {
                     Log.d(TAG, "Override and remove old span over: " + splitText + ", "
@@ -123,7 +116,8 @@ public final class AndroidSpellCheckerSession extends AndroidWordLevelSpellCheck
     @Override
     public SentenceSuggestionsInfo[] onGetSentenceSuggestionsMultiple(TextInfo[] textInfos,
             int suggestionsLimit) {
-        final SentenceSuggestionsInfo[] retval = splitAndSuggest(textInfos, suggestionsLimit);
+        final SentenceSuggestionsInfo[] retval =
+                super.onGetSentenceSuggestionsMultiple(textInfos, suggestionsLimit);
         if (retval == null || retval.length != textInfos.length) {
             return retval;
         }
@@ -137,58 +131,6 @@ public final class AndroidSpellCheckerSession extends AndroidWordLevelSpellCheck
         return retval;
     }
 
-    /**
-     * Get sentence suggestions for specified texts in an array of TextInfo. This is taken from
-     * SpellCheckerService#onGetSentenceSuggestionsMultiple that we can't use because it's
-     * using private variables.
-     * The default implementation splits the input text to words and returns
-     * {@link SentenceSuggestionsInfo} which contains suggestions for each word.
-     * This function will run on the incoming IPC thread.
-     * So, this is not called on the main thread,
-     * but will be called in series on another thread.
-     * @param textInfos an array of the text metadata
-     * @param suggestionsLimit the maximum number of suggestions to be returned
-     * @return an array of {@link SentenceSuggestionsInfo} returned by
-     * {@link SpellCheckerService.Session#onGetSuggestions(TextInfo, int)}
-     */
-    private SentenceSuggestionsInfo[] splitAndSuggest(TextInfo[] textInfos, int suggestionsLimit) {
-        if (textInfos == null || textInfos.length == 0) {
-            return SentenceLevelAdapter.getEmptySentenceSuggestionsInfo();
-        }
-        SentenceLevelAdapter sentenceLevelAdapter;
-        synchronized(this) {
-            sentenceLevelAdapter = mSentenceLevelAdapter;
-            if (sentenceLevelAdapter == null) {
-                final String localeStr = getLocale();
-                if (!TextUtils.isEmpty(localeStr)) {
-                    sentenceLevelAdapter = new SentenceLevelAdapter(mResources,
-                            new Locale(localeStr));
-                    mSentenceLevelAdapter = sentenceLevelAdapter;
-                }
-            }
-        }
-        if (sentenceLevelAdapter == null) {
-            return SentenceLevelAdapter.getEmptySentenceSuggestionsInfo();
-        }
-        final int infosSize = textInfos.length;
-        final SentenceSuggestionsInfo[] retval = new SentenceSuggestionsInfo[infosSize];
-        for (int i = 0; i < infosSize; ++i) {
-            final SentenceLevelAdapter.SentenceTextInfoParams textInfoParams =
-                    sentenceLevelAdapter.getSplitWords(textInfos[i]);
-            final ArrayList<SentenceLevelAdapter.SentenceWordItem> mItems =
-                    textInfoParams.mItems;
-            final int itemsSize = mItems.size();
-            final TextInfo[] splitTextInfos = new TextInfo[itemsSize];
-            for (int j = 0; j < itemsSize; ++j) {
-                splitTextInfos[j] = mItems.get(j).mTextInfo;
-            }
-            retval[i] = SentenceLevelAdapter.reconstructSuggestions(
-                    textInfoParams, onGetSuggestionsMultiple(
-                            splitTextInfos, suggestionsLimit, true));
-        }
-        return retval;
-    }
-
     @Override
     public SuggestionsInfo[] onGetSuggestionsMultiple(TextInfo[] textInfos,
             int suggestionsLimit, boolean sequentialWords) {
@@ -197,22 +139,18 @@ public final class AndroidSpellCheckerSession extends AndroidWordLevelSpellCheck
             final int length = textInfos.length;
             final SuggestionsInfo[] retval = new SuggestionsInfo[length];
             for (int i = 0; i < length; ++i) {
-                final CharSequence prevWord;
+                final String prevWord;
                 if (sequentialWords && i > 0) {
-                    final TextInfo prevTextInfo = textInfos[i - 1];
-                    final CharSequence prevWordCandidate =
-                            TextInfoCompatUtils.getCharSequenceOrString(prevTextInfo);
-                    // Note that an empty string would be used to indicate the initial word
-                    // in the future.
-                    prevWord = TextUtils.isEmpty(prevWordCandidate) ? null : prevWordCandidate;
+                final String prevWordCandidate = textInfos[i - 1].getText();
+                // Note that an empty string would be used to indicate the initial word
+                // in the future.
+                prevWord = TextUtils.isEmpty(prevWordCandidate) ? null : prevWordCandidate;
                 } else {
                     prevWord = null;
                 }
-                final PrevWordsInfo prevWordsInfo =
-                        new PrevWordsInfo(new PrevWordsInfo.WordInfo(prevWord));
-                final TextInfo textInfo = textInfos[i];
-                retval[i] = onGetSuggestionsInternal(textInfo, prevWordsInfo, suggestionsLimit);
-                retval[i].setCookieAndSequence(textInfo.getCookie(), textInfo.getSequence());
+                retval[i] = onGetSuggestionsInternal(textInfos[i], prevWord, suggestionsLimit);
+                retval[i].setCookieAndSequence(textInfos[i].getCookie(),
+                        textInfos[i].getSequence());
             }
             return retval;
         } finally {

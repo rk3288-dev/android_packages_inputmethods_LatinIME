@@ -51,9 +51,9 @@
             latin:keyStyle="toMoreSymbolKeyStyle"
             latin:keyWidth="10.0%p" />
         <Key
-            latin:keySpec="\\" />
+            latin:keyLabel="\\" />
         <Key
-            latin:keySpec="=" />
+            latin:keyLabel="=" />
         <include
             latin:keyboardLayout="@xml/rowkeys_symbols3" />
         <Key
@@ -62,7 +62,6 @@
     </Row>
     <Row
         latin:keyWidth="9.0%p"
-        latin:backgroundType="functional"
     >
         <Key
             latin:keyStyle="toAlphaKeyStyle"
@@ -70,6 +69,6 @@
         <include
             latin:keyboardLayout="@xml/row_symbols4" />
         <include
-            latin:keyboardLayout="@xml/key_emoji" />
+            latin:keyboardLayout="@xml/key_f2" />
     </Row>
 </merge>

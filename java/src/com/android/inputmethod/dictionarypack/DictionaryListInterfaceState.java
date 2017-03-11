@@ -18,6 +18,8 @@ package com.android.inputmethod.dictionarypack;
 
 import android.view.View;
 
+import com.android.inputmethod.latin.utils.CollectionUtils;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -37,8 +39,8 @@ public class DictionaryListInterfaceState {
         public int mStatus = MetadataDbHelper.STATUS_UNKNOWN;
     }
 
-    private HashMap<String, State> mWordlistToState = new HashMap<>();
-    private ArrayList<View> mViewCache = new ArrayList<>();
+    private HashMap<String, State> mWordlistToState = CollectionUtils.newHashMap();
+    private ArrayList<View> mViewCache = CollectionUtils.newArrayList();
 
     public boolean isOpen(final String wordlistId) {
         final State state = mWordlistToState.get(wordlistId);

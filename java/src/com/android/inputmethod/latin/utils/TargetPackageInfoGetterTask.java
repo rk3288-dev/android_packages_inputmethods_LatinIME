@@ -22,12 +22,11 @@ import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.util.LruCache;
 
-import com.android.inputmethod.compat.AppWorkaroundsUtils;
-
 public final class TargetPackageInfoGetterTask extends
         AsyncTask<String, Void, PackageInfo> {
     private static final int MAX_CACHE_ENTRIES = 64; // arbitrary
-    private static final LruCache<String, PackageInfo> sCache = new LruCache<>(MAX_CACHE_ENTRIES);
+    private static final LruCache<String, PackageInfo> sCache =
+            new LruCache<String, PackageInfo>(MAX_CACHE_ENTRIES);
 
     public static PackageInfo getCachedPackageInfo(final String packageName) {
         if (null == packageName) return null;
@@ -38,13 +37,17 @@ public final class TargetPackageInfoGetterTask extends
         sCache.remove(packageName);
     }
 
+    public interface OnTargetPackageInfoKnownListener {
+        public void onTargetPackageInfoKnown(final PackageInfo info);
+    }
+
     private Context mContext;
-    private final AsyncResultHolder<AppWorkaroundsUtils> mResult;
+    private final OnTargetPackageInfoKnownListener mListener;
 
     public TargetPackageInfoGetterTask(final Context context,
-            final AsyncResultHolder<AppWorkaroundsUtils> result) {
+            final OnTargetPackageInfoKnownListener listener) {
         mContext = context;
-        mResult = result;
+        mListener = listener;
     }
 
     @Override
@@ -62,6 +65,6 @@ public final class TargetPackageInfoGetterTask extends
 
     @Override
     protected void onPostExecute(final PackageInfo info) {
-        mResult.set(new AppWorkaroundsUtils(info));
+        mListener.onTargetPackageInfoKnown(info);
     }
 }

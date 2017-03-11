@@ -19,9 +19,7 @@ package com.android.inputmethod.latin;
 import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import com.android.inputmethod.latin.makedict.FormatSpec.DictionaryOptions;
 import com.android.inputmethod.latin.makedict.FusionDictionary;
-import com.android.inputmethod.latin.makedict.ProbabilityInfo;
 import com.android.inputmethod.latin.makedict.FusionDictionary.PtNodeArray;
 
 import java.util.HashMap;
@@ -33,18 +31,18 @@ import java.util.HashMap;
 public class FusionDictionaryTests extends AndroidTestCase {
     public void testFindWordInTree() {
         FusionDictionary dict = new FusionDictionary(new PtNodeArray(),
-                new DictionaryOptions(new HashMap<String,String>()));
+                new FusionDictionary.DictionaryOptions(new HashMap<String,String>(), false, false));
 
-        dict.add("abc", new ProbabilityInfo(10), null, false /* isNotAWord */);
+        dict.add("abc", 10, null, false /* isNotAWord */);
         assertNull(FusionDictionary.findWordInTree(dict.mRootNodeArray, "aaa"));
         assertNotNull(FusionDictionary.findWordInTree(dict.mRootNodeArray, "abc"));
 
-        dict.add("aa", new ProbabilityInfo(10), null, false /* isNotAWord */);
+        dict.add("aa", 10, null, false /* isNotAWord */);
         assertNull(FusionDictionary.findWordInTree(dict.mRootNodeArray, "aaa"));
         assertNotNull(FusionDictionary.findWordInTree(dict.mRootNodeArray, "aa"));
 
-        dict.add("babcd", new ProbabilityInfo(10), null, false /* isNotAWord */);
-        dict.add("bacde", new ProbabilityInfo(10), null, false /* isNotAWord */);
+        dict.add("babcd", 10, null, false /* isNotAWord */);
+        dict.add("bacde", 10, null, false /* isNotAWord */);
         assertNull(FusionDictionary.findWordInTree(dict.mRootNodeArray, "ba"));
         assertNotNull(FusionDictionary.findWordInTree(dict.mRootNodeArray, "babcd"));
         assertNotNull(FusionDictionary.findWordInTree(dict.mRootNodeArray, "bacde"));

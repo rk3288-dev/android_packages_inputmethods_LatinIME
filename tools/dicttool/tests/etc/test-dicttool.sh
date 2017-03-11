@@ -18,7 +18,7 @@ echo "Usage:" 1>&2
 echo "    source $0" 1>&2
 echo "  or" 1>&2
 echo "    . $0" 1>&2
-if [[ ${BASH_SOURCE[0]} != $0 ]]; then return; else exit 1; fi
+exit 1
 fi
 
 find out -name "dicttool_aosp*" -exec rm -rf {} \; > /dev/null 2>&1

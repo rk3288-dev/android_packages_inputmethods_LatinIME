@@ -16,9 +16,9 @@
 
 package com.android.inputmethod.keyboard;
 
-/**
- * This class handles key detection.
- */
+import com.android.inputmethod.latin.Constants;
+
+
 public class KeyDetector {
     private final int mKeyHysteresisDistanceSquared;
     private final int mKeyHysteresisDistanceForSlidingModifierSquared;
@@ -27,27 +27,31 @@ public class KeyDetector {
     private int mCorrectionX;
     private int mCorrectionY;
 
-    public KeyDetector() {
-        this(0.0f /* keyHysteresisDistance */, 0.0f /* keyHysteresisDistanceForSlidingModifier */);
+    /**
+     * This class handles key detection.
+     *
+     * @param keyHysteresisDistance if the pointer movement distance is smaller than this, the
+     * movement will not be handled as meaningful movement. The unit is pixel.
+     */
+    public KeyDetector(float keyHysteresisDistance) {
+        this(keyHysteresisDistance, keyHysteresisDistance);
     }
 
     /**
-     * Key detection object constructor with key hysteresis distances.
+     * This class handles key detection.
      *
      * @param keyHysteresisDistance if the pointer movement distance is smaller than this, the
      * movement will not be handled as meaningful movement. The unit is pixel.
      * @param keyHysteresisDistanceForSlidingModifier the same parameter for sliding input that
      * starts from a modifier key such as shift and symbols key.
      */
-    public KeyDetector(final float keyHysteresisDistance,
-            final float keyHysteresisDistanceForSlidingModifier) {
+    public KeyDetector(float keyHysteresisDistance, float keyHysteresisDistanceForSlidingModifier) {
         mKeyHysteresisDistanceSquared = (int)(keyHysteresisDistance * keyHysteresisDistance);
         mKeyHysteresisDistanceForSlidingModifierSquared = (int)(
                 keyHysteresisDistanceForSlidingModifier * keyHysteresisDistanceForSlidingModifier);
     }
 
-    public void setKeyboard(final Keyboard keyboard, final float correctionX,
-            final float correctionY) {
+    public void setKeyboard(Keyboard keyboard, float correctionX, float correctionY) {
         if (keyboard == null) {
             throw new NullPointerException();
         }
@@ -56,25 +60,28 @@ public class KeyDetector {
         mKeyboard = keyboard;
     }
 
-    public int getKeyHysteresisDistanceSquared(final boolean isSlidingFromModifier) {
+    public int getKeyHysteresisDistanceSquared(boolean isSlidingFromModifier) {
         return isSlidingFromModifier
                 ? mKeyHysteresisDistanceForSlidingModifierSquared : mKeyHysteresisDistanceSquared;
     }
 
-    public int getTouchX(final int x) {
+    public int getTouchX(int x) {
         return x + mCorrectionX;
     }
 
     // TODO: Remove vertical correction.
-    public int getTouchY(final int y) {
+    public int getTouchY(int y) {
         return y + mCorrectionY;
     }
 
     public Keyboard getKeyboard() {
+        if (mKeyboard == null) {
+            throw new IllegalStateException("keyboard isn't set");
+        }
         return mKeyboard;
     }
 
-    public boolean alwaysAllowsKeySelectionByDraggingFinger() {
+    public boolean alwaysAllowsSlidingInput() {
         return false;
     }
 
@@ -85,10 +92,7 @@ public class KeyDetector {
      * @param y The y-coordinate of a touch point
      * @return the key that the touch point hits.
      */
-    public Key detectHitKey(final int x, final int y) {
-        if (mKeyboard == null) {
-            return null;
-        }
+    public Key detectHitKey(int x, int y) {
         final int touchX = getTouchX(x);
         final int touchY = getTouchY(y);
 
@@ -112,5 +116,21 @@ public class KeyDetector {
             }
         }
         return primaryKey;
+    }
+
+    public static String printableCode(Key key) {
+        return key != null ? Constants.printableCode(key.getCode()) : "none";
+    }
+
+    public static String printableCodes(int[] codes) {
+        final StringBuilder sb = new StringBuilder();
+        boolean addDelimiter = false;
+        for (final int code : codes) {
+            if (code == Constants.NOT_A_CODE) break;
+            if (addDelimiter) sb.append(", ");
+            sb.append(Constants.printableCode(code));
+            addDelimiter = true;
+        }
+        return "[" + sb + "]";
     }
 }

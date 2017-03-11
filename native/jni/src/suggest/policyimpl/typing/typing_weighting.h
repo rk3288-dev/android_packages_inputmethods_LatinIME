@@ -19,7 +19,6 @@
 
 #include "defines.h"
 #include "suggest/core/dicnode/dic_node_utils.h"
-#include "suggest/core/dictionary/error_type_utils.h"
 #include "suggest/core/layout/touch_position_correction_utils.h"
 #include "suggest/core/policy/weighting.h"
 #include "suggest/core/session/dic_traverse_session.h"
@@ -54,15 +53,12 @@ class TypingWeighting : public Weighting {
 
     float getOmissionCost(const DicNode *const parentDicNode, const DicNode *const dicNode) const {
         const bool isZeroCostOmission = parentDicNode->isZeroCostOmission();
-        const bool isIntentionalOmission = parentDicNode->canBeIntentionalOmission();
         const bool sameCodePoint = dicNode->isSameNodeCodePoint(parentDicNode);
         // If the traversal omitted the first letter then the dicNode should now be on the second.
         const bool isFirstLetterOmission = dicNode->getNodeCodePointCount() == 2;
         float cost = 0.0f;
         if (isZeroCostOmission) {
             cost = 0.0f;
-        } else if (isIntentionalOmission) {
-            cost = ScoringParams::INTENTIONAL_OMISSION_COST;
         } else if (isFirstLetterOmission) {
             cost = ScoringParams::OMISSION_COST_FIRST_CHAR;
         } else {
@@ -75,6 +71,8 @@ class TypingWeighting : public Weighting {
     float getMatchedCost(const DicTraverseSession *const traverseSession,
             const DicNode *const dicNode, DicNode_InputStateG *inputStateG) const {
         const int pointIndex = dicNode->getInputIndex(0);
+        // Note: min() required since length can be MAX_POINT_TO_KEY_LENGTH for characters not on
+        // the keyboard (like accented letters)
         const float normalizedSquaredLength = traverseSession->getProximityInfoState(0)
                 ->getPointToKeyLength(pointIndex,
                         CharUtils::toBaseLowerCase(dicNode->getNodeCodePoint()));
@@ -169,8 +167,8 @@ class TypingWeighting : public Weighting {
         const bool firstCompletion = dicNode->getInputIndex(0)
                 == traverseSession->getInputSize();
         // TODO: Change the cost for the first completion for the gesture?
-        const float cost = firstCompletion ? ScoringParams::COST_FIRST_COMPLETION
-                : ScoringParams::COST_COMPLETION;
+        const float cost = firstCompletion ? ScoringParams::COST_FIRST_LOOKAHEAD
+                : ScoringParams::COST_LOOKAHEAD;
         return cost;
     }
 
@@ -206,7 +204,7 @@ class TypingWeighting : public Weighting {
         return cost * traverseSession->getMultiWordCostMultiplier();
     }
 
-    ErrorTypeUtils::ErrorType getErrorType(const CorrectionType correctionType,
+    ErrorType getErrorType(const CorrectionType correctionType,
             const DicTraverseSession *const traverseSession,
             const DicNode *const parentDicNode, const DicNode *const dicNode) const;
 

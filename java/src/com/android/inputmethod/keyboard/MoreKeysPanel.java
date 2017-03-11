@@ -17,7 +17,6 @@
 package com.android.inputmethod.keyboard;
 
 import android.view.View;
-import android.view.ViewGroup;
 
 public interface MoreKeysPanel {
     public interface Controller {
@@ -29,22 +28,24 @@ public interface MoreKeysPanel {
 
         /**
          * Remove the current {@link MoreKeysPanel} from the target view.
+         * @param panel the panel to be dismissed.
          */
-        public void onDismissMoreKeysPanel();
+        public void onDismissMoreKeysPanel(final MoreKeysPanel panel);
 
         /**
          * Instructs the parent to cancel the panel (e.g., when entering a different input mode).
+         * @param panel the panel to be canceled.
          */
-        public void onCancelMoreKeysPanel();
+        public void onCancelMoreKeysPanel(final MoreKeysPanel panel);
     }
 
     public static final Controller EMPTY_CONTROLLER = new Controller() {
         @Override
         public void onShowMoreKeysPanel(final MoreKeysPanel panel) {}
         @Override
-        public void onDismissMoreKeysPanel() {}
+        public void onDismissMoreKeysPanel(final MoreKeysPanel panel) {}
         @Override
-        public void onCancelMoreKeysPanel() {}
+        public void onCancelMoreKeysPanel(final MoreKeysPanel panel) {}
     };
 
     /**
@@ -118,16 +119,9 @@ public interface MoreKeysPanel {
     public int translateY(int y);
 
     /**
-     * Show this {@link MoreKeysPanel} in the parent view.
-     *
-     * @param parentView the {@link ViewGroup} that hosts this {@link MoreKeysPanel}.
+     * Return the view containing the more keys panel.
      */
-    public void showInParent(ViewGroup parentView);
-
-    /**
-     * Remove this {@link MoreKeysPanel} from the parent view.
-     */
-    public void removeFromParent();
+    public View getContainerView();
 
     /**
      * Return whether the panel is currently being shown.

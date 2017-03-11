@@ -18,7 +18,6 @@ package com.android.inputmethod.latin;
 
 import com.android.inputmethod.keyboard.ProximityInfo;
 import com.android.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
-import com.android.inputmethod.latin.settings.SettingsValuesForSuggestion;
 
 import java.util.ArrayList;
 import java.util.Locale;
@@ -51,13 +50,21 @@ public final class ReadOnlyBinaryDictionary extends Dictionary {
 
     @Override
     public ArrayList<SuggestedWordInfo> getSuggestions(final WordComposer composer,
-            final PrevWordsInfo prevWordsInfo, final ProximityInfo proximityInfo,
-            final SettingsValuesForSuggestion settingsValuesForSuggestion,
-            final int sessionId, final float[] inOutLanguageWeight) {
+            final String prevWord, final ProximityInfo proximityInfo,
+            final boolean blockOffensiveWords, final int[] additionalFeaturesOptions) {
+        return getSuggestionsWithSessionId(composer, prevWord, proximityInfo, blockOffensiveWords,
+                additionalFeaturesOptions, 0 /* sessionId */);
+    }
+
+    @Override
+    public ArrayList<SuggestedWordInfo> getSuggestionsWithSessionId(final WordComposer composer,
+            final String prevWord, final ProximityInfo proximityInfo,
+            final boolean blockOffensiveWords, final int[] additionalFeaturesOptions,
+            final int sessionId) {
         if (mLock.readLock().tryLock()) {
             try {
-                return mBinaryDictionary.getSuggestions(composer, prevWordsInfo, proximityInfo,
-                        settingsValuesForSuggestion, sessionId, inOutLanguageWeight);
+                return mBinaryDictionary.getSuggestions(composer, prevWord, proximityInfo,
+                        blockOffensiveWords, additionalFeaturesOptions);
             } finally {
                 mLock.readLock().unlock();
             }
@@ -66,10 +73,10 @@ public final class ReadOnlyBinaryDictionary extends Dictionary {
     }
 
     @Override
-    public boolean isInDictionary(final String word) {
+    public boolean isValidWord(final String word) {
         if (mLock.readLock().tryLock()) {
             try {
-                return mBinaryDictionary.isInDictionary(word);
+                return mBinaryDictionary.isValidWord(word);
             } finally {
                 mLock.readLock().unlock();
             }
@@ -94,18 +101,6 @@ public final class ReadOnlyBinaryDictionary extends Dictionary {
         if (mLock.readLock().tryLock()) {
             try {
                 return mBinaryDictionary.getFrequency(word);
-            } finally {
-                mLock.readLock().unlock();
-            }
-        }
-        return NOT_A_PROBABILITY;
-    }
-
-    @Override
-    public int getMaxFrequencyOfExactMatches(final String word) {
-        if (mLock.readLock().tryLock()) {
-            try {
-                return mBinaryDictionary.getMaxFrequencyOfExactMatches(word);
             } finally {
                 mLock.readLock().unlock();
             }

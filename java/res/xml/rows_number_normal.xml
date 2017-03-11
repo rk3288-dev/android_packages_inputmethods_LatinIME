@@ -23,16 +23,16 @@
 >
     <Row>
         <Key
-            latin:keySpec="1"
+            latin:keyLabel="1"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="2"
+            latin:keyLabel="2"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="3"
+            latin:keyLabel="3"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="-"
+            latin:keyLabel="-"
             latin:moreKeys="+"
             latin:keyLabelFlags="hasPopupHint"
             latin:keyStyle="numFunctionalKeyStyle"
@@ -40,20 +40,20 @@
     </Row>
     <Row>
         <Key
-            latin:keySpec="4"
+            latin:keyLabel="4"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="5"
+            latin:keyLabel="5"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="6"
+            latin:keyLabel="6"
             latin:keyStyle="numKeyStyle" />
         <switch>
             <case
                 latin:mode="date"
             >
                 <Key
-                    latin:keySpec="."
+                    latin:keyLabel="."
                     latin:keyStyle="numFunctionalKeyStyle"
                     latin:keyWidth="fillRight" />
             </case>
@@ -61,15 +61,15 @@
                 latin:mode="time|datetime"
             >
                 <Key
-                    latin:keySpec="."
+                    latin:keyLabel="."
                     latin:keyLabelFlags="hasPopupHint"
-                    latin:moreKeys="!text/morekeys_am_pm"
+                    latin:moreKeys="!text/more_keys_for_am_pm"
                     latin:keyStyle="numFunctionalKeyStyle"
                     latin:keyWidth="fillRight" />
             </case>
             <default>
                 <Key
-                    latin:keySpec=","
+                    latin:keyLabel=","
                     latin:keyStyle="numFunctionalKeyStyle"
                     latin:keyWidth="fillRight" />
             </default>
@@ -77,53 +77,55 @@
     </Row>
     <Row>
         <Key
-            latin:keySpec="7"
+            latin:keyLabel="7"
             latin:keyStyle="numKeyStyle" />
         <Key
-            latin:keySpec="8"
+            latin:keyLabel="8"
             latin:keyStyle="numKeyStyle"/>
         <Key
-            latin:keySpec="9"
+            latin:keyLabel="9"
             latin:keyStyle="numKeyStyle" />
         <Key
             latin:keyStyle="deleteKeyStyle"
             latin:keyWidth="fillRight" />
     </Row>
     <Row>
+        <Key
+            latin:keyStyle="numSpaceKeyStyle" />
+        <Key
+            latin:keyLabel="0"
+            latin:keyStyle="numKeyStyle" />
         <switch>
             <case
                 latin:mode="date"
             >
                 <Key
-                    latin:keySpec="/"
+                    latin:keyLabel="/"
                     latin:keyStyle="numKeyStyle" />
             </case>
             <case
                 latin:mode="time"
             >
                 <Key
-                    latin:keySpec=":"
+                    latin:keyLabel=":"
                     latin:keyStyle="numKeyStyle" />
             </case>
             <case
                 latin:mode="datetime"
             >
+                <!-- U+002F: "/" SOLIDUS -->
                 <Key
-                    latin:keySpec="/ :|/"
+                    latin:code="0x002F"
+                    latin:keyLabel="/ :"
                     latin:moreKeys="!noPanelAutoMoreKey!,:"
                     latin:keyStyle="numKeyStyle" />
             </case>
             <default>
                 <Key
-                    latin:keySpec="."
+                    latin:keyLabel="."
                     latin:keyStyle="numKeyStyle" />
             </default>
         </switch>
-        <Key
-            latin:keySpec="0"
-            latin:keyStyle="numKeyStyle" />
-        <Key
-            latin:keyStyle="numSpaceKeyStyle" />
         <Key
             latin:keyStyle="enterKeyStyle"
             latin:keyWidth="fillRight" />

@@ -28,7 +28,7 @@ import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.inputmethod.dictionarypack.DictionaryPackConstants;
-import com.android.inputmethod.dictionarypack.MD5Calculator;
+import com.android.inputmethod.latin.utils.CollectionUtils;
 import com.android.inputmethod.latin.utils.DictionaryInfoUtils;
 import com.android.inputmethod.latin.utils.DictionaryInfoUtils.DictionaryInfo;
 import com.android.inputmethod.latin.utils.FileTransforms;
@@ -38,13 +38,12 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -99,7 +98,7 @@ public final class BinaryDictionaryFileDumper {
      * This creates a URI builder able to build a URI pointing to the dictionary
      * pack content provider for a specific dictionary id.
      */
-    public static Uri.Builder getProviderUriBuilder(final String path) {
+    private static Uri.Builder getProviderUriBuilder(final String path) {
         return new Uri.Builder().scheme(ContentResolver.SCHEME_CONTENT)
                 .authority(DictionaryPackConstants.AUTHORITY).appendPath(path);
     }
@@ -143,7 +142,7 @@ public final class BinaryDictionaryFileDumper {
         final ContentProviderClient client = context.getContentResolver().
                 acquireContentProviderClient(getProviderUriBuilder("").build());
         if (null == client) return Collections.<WordListInfo>emptyList();
-        Cursor cursor = null;
+
         try {
             final Uri.Builder builder = getContentUriBuilderForType(clientId, client,
                     QUERY_PATH_DICT_INFO, locale.toString());
@@ -155,23 +154,24 @@ public final class BinaryDictionaryFileDumper {
             final boolean isProtocolV2 = (QUERY_PARAMETER_PROTOCOL_VALUE.equals(
                     queryUri.getQueryParameter(QUERY_PARAMETER_PROTOCOL)));
 
-            cursor = client.query(queryUri, DICTIONARY_PROJECTION, null, null, null);
-            if (isProtocolV2 && null == cursor) {
+            Cursor c = client.query(queryUri, DICTIONARY_PROJECTION, null, null, null);
+            if (isProtocolV2 && null == c) {
                 reinitializeClientRecordInDictionaryContentProvider(context, client, clientId);
-                cursor = client.query(queryUri, DICTIONARY_PROJECTION, null, null, null);
+                c = client.query(queryUri, DICTIONARY_PROJECTION, null, null, null);
             }
-            if (null == cursor) return Collections.<WordListInfo>emptyList();
-            if (cursor.getCount() <= 0 || !cursor.moveToFirst()) {
+            if (null == c) return Collections.<WordListInfo>emptyList();
+            if (c.getCount() <= 0 || !c.moveToFirst()) {
+                c.close();
                 return Collections.<WordListInfo>emptyList();
             }
-            final ArrayList<WordListInfo> list = new ArrayList<>();
+            final ArrayList<WordListInfo> list = CollectionUtils.newArrayList();
             do {
-                final String wordListId = cursor.getString(0);
-                final String wordListLocale = cursor.getString(1);
-                final String wordListRawChecksum = cursor.getString(2);
+                final String wordListId = c.getString(0);
+                final String wordListLocale = c.getString(1);
                 if (TextUtils.isEmpty(wordListId)) continue;
-                list.add(new WordListInfo(wordListId, wordListLocale, wordListRawChecksum));
-            } while (cursor.moveToNext());
+                list.add(new WordListInfo(wordListId, wordListLocale));
+            } while (c.moveToNext());
+            c.close();
             return list;
         } catch (RemoteException e) {
             // The documentation is unclear as to in which cases this may happen, but it probably
@@ -186,9 +186,6 @@ public final class BinaryDictionaryFileDumper {
             Log.e(TAG, "Unexpected exception communicating with the dictionary pack", e);
             return Collections.<WordListInfo>emptyList();
         } finally {
-            if (null != cursor) {
-                cursor.close();
-            }
             client.release();
         }
     }
@@ -219,8 +216,7 @@ public final class BinaryDictionaryFileDumper {
      * and creating it (and its containing directory) if necessary.
      */
     private static void cacheWordList(final String wordlistId, final String locale,
-            final String rawChecksum, final ContentProviderClient providerClient,
-            final Context context) {
+            final ContentProviderClient providerClient, final Context context) {
         final int COMPRESSED_CRYPTED_COMPRESSED = 0;
         final int CRYPTED_COMPRESSED = 1;
         final int COMPRESSED_CRYPTED = 2;
@@ -302,13 +298,6 @@ public final class BinaryDictionaryFileDumper {
                 checkMagicAndCopyFileTo(bufferedInputStream, bufferedOutputStream);
                 bufferedOutputStream.flush();
                 bufferedOutputStream.close();
-                final String actualRawChecksum = MD5Calculator.checksum(
-                        new BufferedInputStream(new FileInputStream(outputFile)));
-                Log.i(TAG, "Computed checksum for downloaded dictionary. Expected = " + rawChecksum
-                        + " ; actual = " + actualRawChecksum);
-                if (!TextUtils.isEmpty(rawChecksum) && !rawChecksum.equals(actualRawChecksum)) {
-                    throw new IOException("Could not decode the file correctly : checksum differs");
-                }
                 final File finalFile = new File(finalFileName);
                 finalFile.delete();
                 if (!outputFile.renameTo(finalFile)) {
@@ -350,25 +339,15 @@ public final class BinaryDictionaryFileDumper {
         Log.e(TAG, "Could not copy a word list. Will not be able to use it.");
         // If we can't copy it we should warn the dictionary provider so that it can mark it
         // as invalid.
-        reportBrokenFileToDictionaryProvider(providerClient, clientId, wordlistId);
-    }
-
-    public static boolean reportBrokenFileToDictionaryProvider(
-            final ContentProviderClient providerClient, final String clientId,
-            final String wordlistId) {
+        wordListUriBuilder.appendQueryParameter(QUERY_PARAMETER_DELETE_RESULT,
+                QUERY_PARAMETER_FAILURE);
         try {
-            final Uri.Builder wordListUriBuilder = getContentUriBuilderForType(clientId,
-                    providerClient, QUERY_PATH_DATAFILE, wordlistId /* extraPath */);
-            wordListUriBuilder.appendQueryParameter(QUERY_PARAMETER_DELETE_RESULT,
-                    QUERY_PARAMETER_FAILURE);
             if (0 >= providerClient.delete(wordListUriBuilder.build(), null, null)) {
-                Log.e(TAG, "Unable to delete a word list.");
+                Log.e(TAG, "In addition, we were unable to delete it.");
             }
         } catch (RemoteException e) {
-            Log.e(TAG, "Communication with the dictionary provider was cut", e);
-            return false;
+            Log.e(TAG, "In addition, communication with the dictionary provider was cut", e);
         }
-        return true;
     }
 
     // Ideally the two following methods should be merged, but AssetFileDescriptor does not
@@ -418,7 +397,7 @@ public final class BinaryDictionaryFileDumper {
             final List<WordListInfo> idList = getWordListWordListInfos(locale, context,
                     hasDefaultWordList);
             for (WordListInfo id : idList) {
-                cacheWordList(id.mId, id.mLocale, id.mRawChecksum, providerClient, context);
+                cacheWordList(id.mId, id.mLocale, providerClient, context);
             }
         } finally {
             providerClient.release();
@@ -453,9 +432,8 @@ public final class BinaryDictionaryFileDumper {
 
         // Actually copy the file
         final byte[] buffer = new byte[FILE_READ_BUFFER_SIZE];
-        for (int readBytes = input.read(buffer); readBytes >= 0; readBytes = input.read(buffer)) {
+        for (int readBytes = input.read(buffer); readBytes >= 0; readBytes = input.read(buffer))
             output.write(buffer, 0, readBytes);
-        }
         input.close();
     }
 
@@ -500,7 +478,8 @@ public final class BinaryDictionaryFileDumper {
      * @param context the context for resources and providers.
      * @param clientId the client ID to use.
      */
-    public static void initializeClientRecordHelper(final Context context, final String clientId) {
+    public static void initializeClientRecordHelper(final Context context,
+            final String clientId) {
         try {
             final ContentProviderClient client = context.getContentResolver().
                     acquireContentProviderClient(getProviderUriBuilder("").build());

@@ -98,10 +98,6 @@ public final class WordListPreference extends Preference {
         setSummary(getSummary(status));
     }
 
-    public boolean hasStatus(final int status) {
-        return status == mStatus;
-    }
-
     @Override
     public View onCreateView(final ViewGroup parent) {
         final View orphanedView = mInterfaceState.findFirstOrphanedView();
@@ -221,7 +217,6 @@ public final class WordListPreference extends Preference {
         progressBar.setIds(mClientId, mWordlistId);
         progressBar.setMax(mFilesize);
         final boolean showProgressBar = (MetadataDbHelper.STATUS_DOWNLOADING == mStatus);
-        setSummary(getSummary(mStatus));
         status.setVisibility(showProgressBar ? View.INVISIBLE : View.VISIBLE);
         progressBar.setVisibility(showProgressBar ? View.VISIBLE : View.INVISIBLE);
 

@@ -50,7 +50,8 @@ public class BlueUnderlineTests extends InputTestsBase {
         final SpanGetter spanBefore = new SpanGetter(mEditText.getText(), SuggestionSpan.class);
         assertEquals("extend blue underline, span start", EXPECTED_SPAN_START, spanBefore.mStart);
         assertEquals("extend blue underline, span end", EXPECTED_SPAN_END, spanBefore.mEnd);
-        assertTrue("extend blue underline, span color", spanBefore.isAutoCorrectionIndicator());
+        assertEquals("extend blue underline, span color", true,
+                spanBefore.isAutoCorrectionIndicator());
         sleep(DELAY_TO_WAIT_FOR_UNDERLINE);
         runMessages();
         // Now we have been able to re-evaluate the word, there shouldn't be an auto-correction span
@@ -60,7 +61,6 @@ public class BlueUnderlineTests extends InputTestsBase {
 
     public void testBlueUnderlineOnBackspace() {
         final String STRING_TO_TYPE = "tgis";
-        final int typedLength = STRING_TO_TYPE.length();
         final int EXPECTED_SUGGESTION_SPAN_START = -1;
         final int EXPECTED_UNDERLINE_SPAN_START = 0;
         final int EXPECTED_UNDERLINE_SPAN_END = 4;
@@ -68,8 +68,6 @@ public class BlueUnderlineTests extends InputTestsBase {
         sleep(DELAY_TO_WAIT_FOR_UNDERLINE);
         runMessages();
         type(Constants.CODE_SPACE);
-        // typedLength + 1 because we also typed a space
-        mLatinIME.onUpdateSelection(0, 0, typedLength + 1, typedLength + 1, -1, -1);
         sleep(DELAY_TO_WAIT_FOR_UNDERLINE);
         runMessages();
         type(Constants.CODE_DELETE);
@@ -79,8 +77,8 @@ public class BlueUnderlineTests extends InputTestsBase {
         sleep(DELAY_TO_WAIT_FOR_UNDERLINE);
         runMessages();
         final SpanGetter suggestionSpan = new SpanGetter(mEditText.getText(), SuggestionSpan.class);
-        assertFalse("show no blue underline after backspace, span should not be the auto-"
-                + "correction indicator", suggestionSpan.isAutoCorrectionIndicator());
+        assertEquals("show no blue underline after backspace, span start should be -1",
+                EXPECTED_SUGGESTION_SPAN_START, suggestionSpan.mStart);
         final SpanGetter underlineSpan = new SpanGetter(mEditText.getText(), UnderlineSpan.class);
         assertEquals("should be composing, so should have an underline span",
                 EXPECTED_UNDERLINE_SPAN_START, underlineSpan.mStart);
@@ -106,8 +104,7 @@ public class BlueUnderlineTests extends InputTestsBase {
         sleep(DELAY_TO_WAIT_FOR_UNDERLINE);
         runMessages();
         final SpanGetter span = new SpanGetter(mEditText.getText(), SuggestionSpan.class);
-        assertFalse("blue underline removed when cursor is moved",
-                span.isAutoCorrectionIndicator());
+        assertNull("blue underline removed when cursor is moved", span.mSpan);
     }
 
     public void testComposingStopsOnSpace() {

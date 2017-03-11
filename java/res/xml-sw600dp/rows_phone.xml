@@ -27,12 +27,12 @@
         latin:keyboardLayout="@xml/key_styles_number" />
     <Row>
         <Key
-            latin:keySpec="-"
+            latin:keyLabel="-"
             latin:keyStyle="numKeyStyle"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
         <Key
-            latin:keySpec="+"
+            latin:keyLabel="+"
             latin:keyStyle="numKeyStyle"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
@@ -54,12 +54,12 @@
     </Row>
     <Row>
         <Key
-            latin:keySpec=","
+            latin:keyLabel=","
             latin:keyStyle="numKeyStyle"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
         <Key
-            latin:keySpec="."
+            latin:keyLabel="."
             latin:keyStyle="numKeyStyle"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
@@ -81,17 +81,17 @@
     </Row>
     <Row>
         <Key
-            latin:keySpec="("
+            latin:keyLabel="("
             latin:keyStyle="numKeyStyle"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
         <Key
-            latin:keySpec=")"
+            latin:keyLabel=")"
             latin:keyStyle="numKeyStyle"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
         <Key
-            latin:keySpec="N"
+            latin:keyLabel="N"
             latin:keyStyle="numKeyStyle"
             latin:keyWidth="10%p"
             latin:backgroundType="functional" />
@@ -107,15 +107,16 @@
     </Row>
     <Row>
         <Key
-            latin:keyStyle="tabletNumSpaceKeyStyle"
-            latin:keyWidth="30%p" />
+            latin:keyStyle="spaceKeyStyle"
+            latin:keyWidth="30%p"
+            latin:backgroundType="functional" />
         <Key
             latin:keyStyle="numStarKeyStyle"
             latin:keyXPos="31%p" />
         <Key
             latin:keyStyle="num0KeyStyle" />
         <Key
-            latin:keySpec="\#"
+            latin:keyLabel="\#"
             latin:keyStyle="numKeyStyle" />
     </Row>
 </merge>

@@ -26,13 +26,7 @@ public final class InputMethodManagerCompatWrapper {
     // Note that InputMethodManager.switchToNextInputMethod() has been introduced
     // in API level 16 (Build.VERSION_CODES.JELLY_BEAN).
     private static final Method METHOD_switchToNextInputMethod = CompatUtils.getMethod(
-            InputMethodManager.class, "switchToNextInputMethod", IBinder.class, boolean.class);
-
-    // Note that InputMethodManager.shouldOfferSwitchingToNextInputMethod() has been introduced
-    // in API level 19 (Build.VERSION_CODES.KITKAT).
-    private static final Method METHOD_shouldOfferSwitchingToNextInputMethod =
-            CompatUtils.getMethod(InputMethodManager.class,
-                    "shouldOfferSwitchingToNextInputMethod", IBinder.class);
+            InputMethodManager.class, "switchToNextInputMethod", IBinder.class, Boolean.TYPE);
 
     public final InputMethodManager mImm;
 
@@ -43,10 +37,5 @@ public final class InputMethodManagerCompatWrapper {
     public boolean switchToNextInputMethod(final IBinder token, final boolean onlyCurrentIme) {
         return (Boolean)CompatUtils.invoke(mImm, false /* defaultValue */,
                 METHOD_switchToNextInputMethod, token, onlyCurrentIme);
-    }
-
-    public boolean shouldOfferSwitchingToNextInputMethod(final IBinder token) {
-        return (Boolean)CompatUtils.invoke(mImm, false /* defaultValue */,
-                METHOD_shouldOfferSwitchingToNextInputMethod, token);
     }
 }

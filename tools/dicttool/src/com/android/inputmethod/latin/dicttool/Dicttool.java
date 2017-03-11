@@ -16,63 +16,24 @@
 
 package com.android.inputmethod.latin.dicttool;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 
 public class Dicttool {
 
     public static abstract class Command {
-        public static final String STDIN_OR_STDOUT = "-";
         protected String[] mArgs;
-
         public void setArgs(String[] args) throws IllegalArgumentException {
             mArgs = args;
         }
-
-        protected static InputStream getFileInputStreamOrStdIn(final String inFilename)
-                throws FileNotFoundException {
-            if (STDIN_OR_STDOUT.equals(inFilename)) {
-                return System.in;
-            }
-            return getFileInputStream(new File(inFilename));
-        }
-
-        protected static InputStream getFileInputStream(final File inFile)
-                throws FileNotFoundException {
-            return new BufferedInputStream(new FileInputStream(inFile));
-        }
-
-        protected static OutputStream getFileOutputStreamOrStdOut(final String outFilename)
-                throws FileNotFoundException {
-            if (STDIN_OR_STDOUT.equals(outFilename)) {
-                return System.out;
-            }
-            return getFileOutputStream(new File(outFilename));
-        }
-
-        protected static OutputStream getFileOutputStream(final File outFile)
-                throws FileNotFoundException {
-            return new BufferedOutputStream(new FileOutputStream(outFile));
-        }
-
         abstract public String getHelp();
         abstract public void run() throws Exception;
     }
-
-    static HashMap<String, Class<? extends Command>> sCommands = new HashMap<>();
-
+    static HashMap<String, Class<? extends Command>> sCommands =
+            new HashMap<String, Class<? extends Command>>();
     static {
         CommandList.populate();
     }
-
     public static void addCommand(final String commandName, final Class<? extends Command> cls) {
         sCommands.put(commandName, cls);
     }
@@ -100,7 +61,7 @@ public class Dicttool {
         return sCommands.containsKey(commandName);
     }
 
-    private static Command getCommand(final String[] arguments) {
+    private Command getCommand(final String[] arguments) {
         final String commandName = arguments[0];
         if (!isCommand(commandName)) {
             throw new RuntimeException("Unknown command : " + commandName);
@@ -116,7 +77,7 @@ public class Dicttool {
      * @param arguments the arguments passed to dicttool.
      * @return 0 for success, an error code otherwise (always 1 at the moment)
      */
-    private static int execute(final String[] arguments) {
+    private int execute(final String[] arguments) {
         final Command command = getCommand(arguments);
         try {
             command.run();
@@ -135,6 +96,6 @@ public class Dicttool {
             return;
         }
         // Exit with the success/error code from #execute() as status.
-        System.exit(execute(arguments));
+        System.exit(new Dicttool().execute(arguments));
     }
 }

@@ -22,22 +22,22 @@
     xmlns:latin="http://schemas.android.com/apk/res/com.android.inputmethod.latin"
 >
     <Key
-        latin:keySpec="z"
-        latin:moreKeys="!text/morekeys_z" />
+        latin:keyLabel="z"
+        latin:moreKeys="!text/more_keys_for_z" />
     <Key
-        latin:keySpec="!text/keyspec_x"
-        latin:moreKeys="!text/morekeys_x" />
+        latin:keyLabel="!text/keylabel_for_x"
+        latin:moreKeys="!text/more_keys_for_x" />
     <Key
-        latin:keySpec="c"
-        latin:moreKeys="!text/morekeys_c" />
+        latin:keyLabel="c"
+        latin:moreKeys="!text/more_keys_for_c" />
     <Key
-        latin:keySpec="v"
-        latin:moreKeys="!text/morekeys_v" />
+        latin:keyLabel="v"
+        latin:moreKeys="!text/more_keys_for_v" />
     <Key
-        latin:keySpec="b" />
+        latin:keyLabel="b" />
     <Key
-        latin:keySpec="n"
-        latin:moreKeys="!text/morekeys_n" />
+        latin:keyLabel="n"
+        latin:moreKeys="!text/more_keys_for_n" />
     <Key
-        latin:keySpec="m" />
+        latin:keyLabel="m" />
 </merge>

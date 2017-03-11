@@ -23,22 +23,22 @@
 >
     <switch>
         <case
-            latin:keyboardLayoutSetElement="alphabet|alphabetAutomaticShifted|alphabetShiftLocked"
+            latin:keyboardLayoutSetElement="alphabet|alphabetAutomaticShifted"
         >
             <Key
-                latin:keySpec=";"
+                latin:keyLabel=";"
                 latin:additionalMoreKeys=":" />
             <Key
-                latin:keySpec="\'"
+                latin:keyLabel="\'"
                 latin:additionalMoreKeys="&quot;"
                 latin:moreKeys="!fixedColumnOrder!4,!text/double_quotes,%,!text/single_quotes" />
         </case>
         <!-- keyboardLayoutSetElement="alphabetManualShifted|alphabetShiftLocked|alphabetShiftLockShifted" -->
         <default>
             <Key
-                latin:keySpec=":" />
+                latin:keyLabel=":" />
             <Key
-                latin:keySpec="&quot;"
+                latin:keyLabel="&quot;"
                 latin:moreKeys="!fixedColumnOrder!3,!text/double_quotes,!text/single_quotes" />
         </default>
     </switch>

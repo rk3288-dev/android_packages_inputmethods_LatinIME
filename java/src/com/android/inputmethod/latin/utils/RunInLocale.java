@@ -30,23 +30,25 @@ public abstract class RunInLocale<T> {
      * Execute {@link #job(Resources)} method in specified system locale exclusively.
      *
      * @param res the resources to use.
-     * @param newLocale the locale to change to. Run in system locale if null.
+     * @param newLocale the locale to change to.
      * @return the value returned from {@link #job(Resources)}.
      */
     public T runInLocale(final Resources res, final Locale newLocale) {
         synchronized (sLockForRunInLocale) {
             final Configuration conf = res.getConfiguration();
-            if (newLocale == null || newLocale.equals(conf.locale)) {
-                return job(res);
-            }
-            final Locale savedLocale = conf.locale;
+            final Locale oldLocale = conf.locale;
+            final boolean needsChange = (newLocale != null && !newLocale.equals(oldLocale));
             try {
-                conf.locale = newLocale;
-                res.updateConfiguration(conf, null);
+                if (needsChange) {
+                    conf.locale = newLocale;
+                    res.updateConfiguration(conf, null);
+                }
                 return job(res);
             } finally {
-                conf.locale = savedLocale;
-                res.updateConfiguration(conf, null);
+                if (needsChange) {
+                    conf.locale = oldLocale;
+                    res.updateConfiguration(conf, null);
+                }
             }
         }
     }

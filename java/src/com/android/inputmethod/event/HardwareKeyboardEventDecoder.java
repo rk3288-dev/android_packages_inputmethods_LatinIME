@@ -46,36 +46,28 @@ public class HardwareKeyboardEventDecoder implements HardwareEventDecoder {
         // do not necessarily map to a unicode character. This represents a physical key, like
         // the key for 'A' or Space, but also Backspace or Ctrl or Caps Lock.
         final int keyCode = keyEvent.getKeyCode();
-        final boolean isKeyRepeat = (0 != keyEvent.getRepeatCount());
         if (KeyEvent.KEYCODE_DEL == keyCode) {
-            return Event.createHardwareKeypressEvent(Event.NOT_A_CODE_POINT, Constants.CODE_DELETE,
-                    null /* next */, isKeyRepeat);
+            return Event.createCommittableEvent(Constants.CODE_DELETE, null /* next */);
         }
         if (keyEvent.isPrintingKey() || KeyEvent.KEYCODE_SPACE == keyCode
                 || KeyEvent.KEYCODE_ENTER == keyCode) {
             if (0 != (codePointAndFlags & KeyCharacterMap.COMBINING_ACCENT)) {
                 // A dead key.
                 return Event.createDeadEvent(
-                        codePointAndFlags & KeyCharacterMap.COMBINING_ACCENT_MASK, keyCode,
-                        null /* next */);
+                        codePointAndFlags & KeyCharacterMap.COMBINING_ACCENT_MASK, null /* next */);
             }
             if (KeyEvent.KEYCODE_ENTER == keyCode) {
                 // The Enter key. If the Shift key is not being pressed, this should send a
                 // CODE_ENTER to trigger the action if any, or a carriage return otherwise. If the
                 // Shift key is being pressed, this should send a CODE_SHIFT_ENTER and let
                 // Latin IME decide what to do with it.
-                if (keyEvent.isShiftPressed()) {
-                    return Event.createHardwareKeypressEvent(Event.NOT_A_CODE_POINT,
-                            Constants.CODE_SHIFT_ENTER, null /* next */, isKeyRepeat);
-                } else {
-                    return Event.createHardwareKeypressEvent(Constants.CODE_ENTER, keyCode,
-                            null /* next */, isKeyRepeat);
-                }
+                return Event.createCommittableEvent(keyEvent.isShiftPressed()
+                        ? Constants.CODE_SHIFT_ENTER : Constants.CODE_ENTER,
+                        null /* next */);
             }
-            // If not Enter, then this is just a regular keypress event for a normal character
-            // that can be committed right away, taking into account the current state.
-            return Event.createHardwareKeypressEvent(codePointAndFlags, keyCode, null /* next */,
-                    isKeyRepeat);
+            // If not Enter, then we have a committable character. This should be committed
+            // right away, taking into account the current state.
+            return Event.createCommittableEvent(codePointAndFlags, null /* next */);
         }
         return Event.createNotHandledEvent();
     }

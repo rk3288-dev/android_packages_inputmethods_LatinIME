@@ -25,18 +25,17 @@ import android.os.Build;
 import android.util.Log;
 import android.view.inputmethod.InputMethodSubtype;
 
-import com.android.inputmethod.latin.Constants;
+import com.android.inputmethod.latin.DictionaryFactory;
 import com.android.inputmethod.latin.R;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 
 public final class SubtypeLocaleUtils {
-    private static final String TAG = SubtypeLocaleUtils.class.getSimpleName();
-
-    // This reference class {@link Constants} must be located in the same package as LatinIME.java.
-    private static final String RESOURCE_PACKAGE_NAME = Constants.class.getPackage().getName();
+    static final String TAG = SubtypeLocaleUtils.class.getSimpleName();
+    // This class must be located in the same package as LatinIME.java.
+    private static final String RESOURCE_PACKAGE_NAME =
+            DictionaryFactory.class.getPackage().getName();
 
     // Special language code to represent "no language".
     public static final String NO_LANGUAGE = "zz";
@@ -44,19 +43,21 @@ public final class SubtypeLocaleUtils {
     public static final String EMOJI = "emoji";
     public static final int UNKNOWN_KEYBOARD_LAYOUT = R.string.subtype_generic;
 
-    private static volatile boolean sInitialized = false;
-    private static final Object sInitializeLock = new Object();
+    private static boolean sInitialized = false;
     private static Resources sResources;
     private static String[] sPredefinedKeyboardLayoutSet;
     // Keyboard layout to its display name map.
-    private static final HashMap<String, String> sKeyboardLayoutToDisplayNameMap = new HashMap<>();
+    private static final HashMap<String, String> sKeyboardLayoutToDisplayNameMap =
+            CollectionUtils.newHashMap();
     // Keyboard layout to subtype name resource id map.
-    private static final HashMap<String, Integer> sKeyboardLayoutToNameIdsMap = new HashMap<>();
+    private static final HashMap<String, Integer> sKeyboardLayoutToNameIdsMap =
+            CollectionUtils.newHashMap();
     // Exceptional locale to subtype name resource id map.
-    private static final HashMap<String, Integer> sExceptionalLocaleToNameIdsMap = new HashMap<>();
+    private static final HashMap<String, Integer> sExceptionalLocaleToNameIdsMap =
+            CollectionUtils.newHashMap();
     // Exceptional locale to subtype name with layout resource id map.
     private static final HashMap<String, Integer> sExceptionalLocaleToWithLayoutNameIdsMap =
-            new HashMap<>();
+            CollectionUtils.newHashMap();
     private static final String SUBTYPE_NAME_RESOURCE_PREFIX =
             "string/subtype_";
     private static final String SUBTYPE_NAME_RESOURCE_GENERIC_PREFIX =
@@ -68,23 +69,16 @@ public final class SubtypeLocaleUtils {
     // Keyboard layout set name for the subtypes that don't have a keyboardLayoutSet extra value.
     // This is for compatibility to keep the same subtype ids as pre-JellyBean.
     private static final HashMap<String, String> sLocaleAndExtraValueToKeyboardLayoutSetMap =
-            new HashMap<>();
+            CollectionUtils.newHashMap();
 
     private SubtypeLocaleUtils() {
         // Intentional empty constructor for utility class.
     }
 
     // Note that this initialization method can be called multiple times.
-    public static void init(final Context context) {
-        synchronized (sInitializeLock) {
-            if (sInitialized == false) {
-                initLocked(context);
-                sInitialized = true;
-            }
-        }
-    }
+    public static synchronized void init(final Context context) {
+        if (sInitialized) return;
 
-    private static void initLocked(final Context context) {
         final Resources res = context.getResources();
         sResources = res;
 
@@ -127,6 +121,8 @@ public final class SubtypeLocaleUtils {
             final String keyboardLayoutSet = keyboardLayoutSetMap[i + 1];
             sLocaleAndExtraValueToKeyboardLayoutSetMap.put(key, keyboardLayoutSet);
         }
+
+        sInitialized = true;
     }
 
     public static String[] getPredefinedKeyboardLayoutSet() {
@@ -170,18 +166,8 @@ public final class SubtypeLocaleUtils {
         return getSubtypeLocaleDisplayNameInternal(localeString, displayLocale);
     }
 
-    public static String getSubtypeLanguageDisplayName(final String localeString) {
-        final Locale locale = LocaleUtils.constructLocaleFromString(localeString);
-        final Locale displayLocale = getDisplayLocaleOfSubtypeLocale(localeString);
-        return getSubtypeLocaleDisplayNameInternal(locale.getLanguage(), displayLocale);
-    }
-
     private static String getSubtypeLocaleDisplayNameInternal(final String localeString,
             final Locale displayLocale) {
-        if (NO_LANGUAGE.equals(localeString)) {
-            // No language subtype should be displayed in system locale.
-            return sResources.getString(R.string.subtype_no_language);
-        }
         final Integer exceptionalNameResId = sExceptionalLocaleToNameIdsMap.get(localeString);
         final String displayName;
         if (exceptionalNameResId != null) {
@@ -192,6 +178,9 @@ public final class SubtypeLocaleUtils {
                 }
             };
             displayName = getExceptionalName.runInLocale(sResources, displayLocale);
+        } else if (NO_LANGUAGE.equals(localeString)) {
+            // No language subtype should be displayed in system locale.
+            return sResources.getString(R.string.subtype_no_language);
         } else {
             final Locale locale = LocaleUtils.constructLocaleFromString(localeString);
             displayName = locale.getDisplayName(displayLocale);
@@ -208,14 +197,12 @@ public final class SubtypeLocaleUtils {
     //  es_US spanish F  Español (EE.UU.)        exception
     //  fr    azerty  F  Français
     //  fr_CA qwerty  F  Français (Canada)
-    //  fr_CH swiss   F  Français (Suisse)
     //  de    qwertz  F  Deutsch
-    //  de_CH swiss   T  Deutsch (Schweiz)
-    //  zz    qwerty  F  Alphabet (QWERTY)       in system locale
+    //  zz    qwerty  F  No language (QWERTY)    in system locale
     //  fr    qwertz  T  Français (QWERTZ)
     //  de    qwerty  T  Deutsch (QWERTY)
     //  en_US azerty  T  English (US) (AZERTY)   exception
-    //  zz    azerty  T  Alphabet (AZERTY)       in system locale
+    //  zz    azerty  T  No language (AZERTY)    in system locale
 
     private static String getReplacementString(final InputMethodSubtype subtype,
             final Locale displayLocale) {
@@ -302,27 +289,45 @@ public final class SubtypeLocaleUtils {
         return keyboardLayoutSet;
     }
 
-    // TODO: Get this information from the framework instead of maintaining here by ourselves.
-    // Sorted list of known Right-To-Left language codes.
-    private static final String[] SORTED_RTL_LANGUAGES = {
-        "ar", // Arabic
-        "fa", // Persian
-        "iw", // Hebrew
-    };
-    static {
-        Arrays.sort(SORTED_RTL_LANGUAGES);
+    // InputMethodSubtype's display name for spacebar text in its locale.
+    //        isAdditionalSubtype (T=true, F=false)
+    // locale layout  | Short  Middle      Full
+    // ------ ------- - ---- --------- ----------------------
+    //  en_US qwerty  F  En  English   English (US)           exception
+    //  en_GB qwerty  F  En  English   English (UK)           exception
+    //  es_US spanish F  Es  Español   Español (EE.UU.)       exception
+    //  fr    azerty  F  Fr  Français  Français
+    //  fr_CA qwerty  F  Fr  Français  Français (Canada)
+    //  de    qwertz  F  De  Deutsch   Deutsch
+    //  zz    qwerty  F      QWERTY    QWERTY
+    //  fr    qwertz  T  Fr  Français  Français
+    //  de    qwerty  T  De  Deutsch   Deutsch
+    //  en_US azerty  T  En  English   English (US)
+    //  zz    azerty  T      AZERTY    AZERTY
+
+    // Get InputMethodSubtype's full display name in its locale.
+    public static String getFullDisplayName(final InputMethodSubtype subtype) {
+        if (isNoLanguage(subtype)) {
+            return getKeyboardLayoutSetDisplayName(subtype);
+        }
+        return getSubtypeLocaleDisplayName(subtype.getLocale());
     }
 
-    public static boolean isRtlLanguage(final Locale locale) {
-        final String language = locale.getLanguage();
-        return Arrays.binarySearch(SORTED_RTL_LANGUAGES, language) >= 0;
+    // Get InputMethodSubtype's middle display name in its locale.
+    public static String getMiddleDisplayName(final InputMethodSubtype subtype) {
+        if (isNoLanguage(subtype)) {
+            return getKeyboardLayoutSetDisplayName(subtype);
+        }
+        final Locale locale = getSubtypeLocale(subtype);
+        return getSubtypeLocaleDisplayName(locale.getLanguage());
     }
 
-    public static boolean isRtlLanguage(final InputMethodSubtype subtype) {
-        return isRtlLanguage(getSubtypeLocale(subtype));
-    }
-
-    public static String getCombiningRulesExtraValue(final InputMethodSubtype subtype) {
-        return subtype.getExtraValueOf(Constants.Subtype.ExtraValue.COMBINING_RULES);
+    // Get InputMethodSubtype's short display name in its locale.
+    public static String getShortDisplayName(final InputMethodSubtype subtype) {
+        if (isNoLanguage(subtype)) {
+            return "";
+        }
+        final Locale locale = getSubtypeLocale(subtype);
+        return StringUtils.capitalizeFirstCodePoint(locale.getLanguage(), locale);
     }
 }

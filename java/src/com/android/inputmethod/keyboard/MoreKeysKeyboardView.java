@@ -17,18 +17,11 @@
 package com.android.inputmethod.keyboard;
 
 import android.content.Context;
-import android.content.res.TypedArray;
-import android.graphics.Canvas;
-import android.graphics.Paint;
-import android.graphics.drawable.Drawable;
+import android.content.res.Resources;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 
-import com.android.inputmethod.accessibility.AccessibilityUtils;
-import com.android.inputmethod.accessibility.MoreKeysKeyboardAccessibilityDelegate;
-import com.android.inputmethod.keyboard.internal.KeyDrawParams;
 import com.android.inputmethod.latin.Constants;
 import com.android.inputmethod.latin.R;
 import com.android.inputmethod.latin.utils.CoordinateUtils;
@@ -40,7 +33,6 @@ import com.android.inputmethod.latin.utils.CoordinateUtils;
 public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel {
     private final int[] mCoordinates = CoordinateUtils.newInstance();
 
-    private final Drawable mDivider;
     protected final KeyDetector mKeyDetector;
     private Controller mController = EMPTY_CONTROLLER;
     protected KeyboardActionListener mListener;
@@ -50,8 +42,6 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
 
     private int mActivePointerId;
 
-    protected MoreKeysKeyboardAccessibilityDelegate mAccessibilityDelegate;
-
     public MoreKeysKeyboardView(final Context context, final AttributeSet attrs) {
         this(context, attrs, R.attr.moreKeysKeyboardViewStyle);
     }
@@ -59,16 +49,10 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
     public MoreKeysKeyboardView(final Context context, final AttributeSet attrs,
             final int defStyle) {
         super(context, attrs, defStyle);
-        final TypedArray moreKeysKeyboardViewAttr = context.obtainStyledAttributes(attrs,
-                R.styleable.MoreKeysKeyboardView, defStyle, R.style.MoreKeysKeyboardView);
-        mDivider = moreKeysKeyboardViewAttr.getDrawable(R.styleable.MoreKeysKeyboardView_divider);
-        if (mDivider != null) {
-            // TODO: Drawable itself should have an alpha value.
-            mDivider.setAlpha(128);
-        }
-        moreKeysKeyboardViewAttr.recycle();
-        mKeyDetector = new MoreKeysDetector(getResources().getDimension(
-                R.dimen.config_more_keys_keyboard_slide_allowance));
+
+        final Resources res = context.getResources();
+        mKeyDetector = new MoreKeysDetector(
+                res.getDimension(R.dimen.more_keys_keyboard_slide_allowance));
     }
 
     @Override
@@ -84,39 +68,16 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
     }
 
     @Override
-    protected void onDrawKeyTopVisuals(final Key key, final Canvas canvas, final Paint paint,
-            final KeyDrawParams params) {
-        if (!key.isSpacer() || !(key instanceof MoreKeysKeyboard.MoreKeyDivider)
-                || mDivider == null) {
-            super.onDrawKeyTopVisuals(key, canvas, paint, params);
-            return;
-        }
-        final int keyWidth = key.getDrawWidth();
-        final int keyHeight = key.getHeight();
-        final int iconWidth = Math.min(mDivider.getIntrinsicWidth(), keyWidth);
-        final int iconHeight = mDivider.getIntrinsicHeight();
-        final int iconX = (keyWidth - iconWidth) / 2; // Align horizontally center
-        final int iconY = (keyHeight - iconHeight) / 2; // Align vertically center
-        drawIcon(canvas, mDivider, iconX, iconY, iconWidth, iconHeight);
+    public void setKeyboard(final Keyboard keyboard){
+        super.setKeyboard(keyboard);
+        mKeyDetector.setKeyboard(keyboard, -getPaddingLeft(),
+                -getPaddingTop() + getVerticalCorrection());
     }
 
-    @Override
-    public void setKeyboard(final Keyboard keyboard) {
-        super.setKeyboard(keyboard);
-        mKeyDetector.setKeyboard(
-                keyboard, -getPaddingLeft(), -getPaddingTop() + getVerticalCorrection());
-        if (AccessibilityUtils.getInstance().isAccessibilityEnabled()) {
-            if (mAccessibilityDelegate == null) {
-                mAccessibilityDelegate = new MoreKeysKeyboardAccessibilityDelegate(
-                        this, mKeyDetector);
-                mAccessibilityDelegate.setOpenAnnounce(R.string.spoken_open_more_keys_keyboard);
-                mAccessibilityDelegate.setCloseAnnounce(R.string.spoken_close_more_keys_keyboard);
-            }
-            mAccessibilityDelegate.setKeyboard(keyboard);
-        } else {
-            mAccessibilityDelegate = null;
-        }
+    public KeyDetector getKeyDetector() {
+        return mKeyDetector;
     }
+
 
     @Override
     public void showMoreKeysPanel(final View parentView, final Controller controller,
@@ -125,13 +86,11 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
         mListener = listener;
         final View container = getContainerView();
         // The coordinates of panel's left-top corner in parentView's coordinate system.
-        // We need to consider background drawable paddings.
-        final int x = pointX - getDefaultCoordX() - container.getPaddingLeft() - getPaddingLeft();
-        final int y = pointY - container.getMeasuredHeight() + container.getPaddingBottom()
-                + getPaddingBottom();
+        final int x = pointX - getDefaultCoordX() - container.getPaddingLeft();
+        final int y = pointY - container.getMeasuredHeight() + container.getPaddingBottom();
 
         parentView.getLocationInWindow(mCoordinates);
-        // Ensure the horizontal position of the panel does not extend past the parentView edges.
+        // Ensure the horizontal position of the panel does not extend past the screen edges.
         final int maxX = parentView.getMeasuredWidth() - container.getMeasuredWidth();
         final int panelX = Math.max(0, Math.min(maxX, x)) + CoordinateUtils.x(mCoordinates);
         final int panelY = y + CoordinateUtils.y(mCoordinates);
@@ -141,11 +100,6 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
         mOriginX = x + container.getPaddingLeft();
         mOriginY = y + container.getPaddingTop();
         controller.onShowMoreKeysPanel(this);
-        final MoreKeysKeyboardAccessibilityDelegate accessibilityDelegate = mAccessibilityDelegate;
-        if (accessibilityDelegate != null
-                && AccessibilityUtils.getInstance().isAccessibilityEnabled()) {
-            accessibilityDelegate.onShowMoreKeysKeyboard();
-        }
     }
 
     /**
@@ -158,33 +112,27 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
     @Override
     public void onDownEvent(final int x, final int y, final int pointerId, final long eventTime) {
         mActivePointerId = pointerId;
-        mCurrentKey = detectKey(x, y);
+        onMoveKeyInternal(x, y, pointerId);
     }
 
     @Override
-    public void onMoveEvent(final int x, final int y, final int pointerId, final long eventTime) {
+    public void onMoveEvent(int x, int y, final int pointerId, long eventTime) {
         if (mActivePointerId != pointerId) {
             return;
         }
         final boolean hasOldKey = (mCurrentKey != null);
-        mCurrentKey = detectKey(x, y);
+        onMoveKeyInternal(x, y, pointerId);
         if (hasOldKey && mCurrentKey == null) {
-            // A more keys keyboard is canceled when detecting no key.
-            mController.onCancelMoreKeysPanel();
+            // If the pointer has moved too far away from any target then cancel the panel.
+            mController.onCancelMoreKeysPanel(this);
         }
     }
 
     @Override
     public void onUpEvent(final int x, final int y, final int pointerId, final long eventTime) {
-        if (mActivePointerId != pointerId) {
-            return;
-        }
-        // Calling {@link #detectKey(int,int,int)} here is harmless because the last move event and
-        // the following up event share the same coordinates.
-        mCurrentKey = detectKey(x, y);
-        if (mCurrentKey != null) {
+        if (mCurrentKey != null && mActivePointerId == pointerId) {
             updateReleaseKeyGraphics(mCurrentKey);
-            onKeyInput(mCurrentKey, x, y);
+            onCodeInput(mCurrentKey.getCode(), x, y);
             mCurrentKey = null;
         }
     }
@@ -192,36 +140,31 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
     /**
      * Performs the specific action for this panel when the user presses a key on the panel.
      */
-    protected void onKeyInput(final Key key, final int x, final int y) {
-        final int code = key.getCode();
+    protected void onCodeInput(final int code, final int x, final int y) {
         if (code == Constants.CODE_OUTPUT_TEXT) {
             mListener.onTextInput(mCurrentKey.getOutputText());
         } else if (code != Constants.CODE_UNSPECIFIED) {
-            if (getKeyboard().hasProximityCharsCorrection(code)) {
-                mListener.onCodeInput(code, x, y, false /* isKeyRepeat */);
-            } else {
-                mListener.onCodeInput(code, Constants.NOT_A_COORDINATE, Constants.NOT_A_COORDINATE,
-                        false /* isKeyRepeat */);
-            }
+            mListener.onCodeInput(code, x, y);
         }
     }
 
-    private Key detectKey(int x, int y) {
+    private void onMoveKeyInternal(int x, int y, int pointerId) {
+        if (mActivePointerId != pointerId) {
+            // Ignore old pointers when newer pointer is active.
+            return;
+        }
         final Key oldKey = mCurrentKey;
         final Key newKey = mKeyDetector.detectHitKey(x, y);
-        if (newKey == oldKey) {
-            return newKey;
+        if (newKey != oldKey) {
+            mCurrentKey = newKey;
+            invalidateKey(mCurrentKey);
+            if (oldKey != null) {
+                updateReleaseKeyGraphics(oldKey);
+            }
+            if (newKey != null) {
+                updatePressKeyGraphics(newKey);
+            }
         }
-        // A new key is detected.
-        if (oldKey != null) {
-            updateReleaseKeyGraphics(oldKey);
-            invalidateKey(oldKey);
-        }
-        if (newKey != null) {
-            updatePressKeyGraphics(newKey);
-            invalidateKey(newKey);
-        }
-        return newKey;
     }
 
     private void updateReleaseKeyGraphics(final Key key) {
@@ -239,12 +182,7 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
         if (!isShowingInParent()) {
             return;
         }
-        final MoreKeysKeyboardAccessibilityDelegate accessibilityDelegate = mAccessibilityDelegate;
-        if (accessibilityDelegate != null
-                && AccessibilityUtils.getInstance().isAccessibilityEnabled()) {
-            accessibilityDelegate.onDismissMoreKeysKeyboard();
-        }
-        mController.onDismissMoreKeysPanel();
+        mController.onDismissMoreKeysPanel(this);
     }
 
     @Override
@@ -281,36 +219,9 @@ public class MoreKeysKeyboardView extends KeyboardView implements MoreKeysPanel 
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public boolean onHoverEvent(final MotionEvent event) {
-        final MoreKeysKeyboardAccessibilityDelegate accessibilityDelegate = mAccessibilityDelegate;
-        if (accessibilityDelegate != null
-                && AccessibilityUtils.getInstance().isTouchExplorationEnabled()) {
-            return accessibilityDelegate.onHoverEvent(event);
-        }
-        return super.onHoverEvent(event);
-    }
-
-    private View getContainerView() {
+    public View getContainerView() {
         return (View)getParent();
-    }
-
-    @Override
-    public void showInParent(final ViewGroup parentView) {
-        removeFromParent();
-        parentView.addView(getContainerView());
-    }
-
-    @Override
-    public void removeFromParent() {
-        final View containerView = getContainerView();
-        final ViewGroup currentParent = (ViewGroup)containerView.getParent();
-        if (currentParent != null) {
-            currentParent.removeView(containerView);
-        }
     }
 
     @Override

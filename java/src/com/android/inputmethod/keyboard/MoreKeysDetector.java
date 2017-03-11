@@ -21,29 +21,25 @@ public final class MoreKeysDetector extends KeyDetector {
     private final int mSlideAllowanceSquareTop;
 
     public MoreKeysDetector(float slideAllowance) {
-        super();
+        super(/* keyHysteresisDistance */0);
         mSlideAllowanceSquare = (int)(slideAllowance * slideAllowance);
         // Top slide allowance is slightly longer (sqrt(2) times) than other edges.
         mSlideAllowanceSquareTop = mSlideAllowanceSquare * 2;
     }
 
     @Override
-    public boolean alwaysAllowsKeySelectionByDraggingFinger() {
+    public boolean alwaysAllowsSlidingInput() {
         return true;
     }
 
     @Override
-    public Key detectHitKey(final int x, final int y) {
-        final Keyboard keyboard = getKeyboard();
-        if (keyboard == null) {
-            return null;
-        }
+    public Key detectHitKey(int x, int y) {
         final int touchX = getTouchX(x);
         final int touchY = getTouchY(y);
 
         Key nearestKey = null;
         int nearestDist = (y < 0) ? mSlideAllowanceSquareTop : mSlideAllowanceSquare;
-        for (final Key key : keyboard.getSortedKeys()) {
+        for (final Key key : getKeyboard().getKeys()) {
             final int dist = key.squaredDistanceToEdge(touchX, touchY);
             if (dist < nearestDist) {
                 nearestKey = key;

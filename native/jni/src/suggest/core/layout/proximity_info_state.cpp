@@ -18,10 +18,8 @@
 
 #include "suggest/core/layout/proximity_info_state.h"
 
-#include <algorithm>
-#include <cstring> // for memset() and memmove()
+#include <cstring> // for memset() and memcpy()
 #include <sstream> // for debug prints
-#include <unordered_map>
 #include <vector>
 
 #include "defines.h"
@@ -31,12 +29,6 @@
 #include "utils/char_utils.h"
 
 namespace latinime {
-
-int ProximityInfoState::getPrimaryOriginalCodePointAt(const int index) const {
-    const int primaryCodePoint = getPrimaryCodePointAt(index);
-    const int keyIndex = mProximityInfo->getKeyIndexOf(primaryCodePoint);
-    return mProximityInfo->getOriginalCodePointOf(keyIndex);
-}
 
 // TODO: Remove the dependency of "isGeometric"
 void ProximityInfoState::initInputParams(const int pointerId, const float maxPointToKeyLength,
@@ -92,6 +84,7 @@ void ProximityInfoState::initInputParams(const int pointerId, const float maxPoi
         mSampledInputIndice.clear();
         mSampledLengthCache.clear();
         mSampledNormalizedSquaredLengthCache.clear();
+        mSampledNearKeySets.clear();
         mSampledSearchKeySets.clear();
         mSpeedRates.clear();
         mBeelineSpeedPercentiles.clear();
@@ -126,17 +119,18 @@ void ProximityInfoState::initInputParams(const int pointerId, const float maxPoi
     if (mSampledInputSize > 0) {
         ProximityInfoStateUtils::initGeometricDistanceInfos(mProximityInfo, mSampledInputSize,
                 lastSavedInputSize, isGeometric, &mSampledInputXs, &mSampledInputYs,
-                &mSampledNormalizedSquaredLengthCache);
+                &mSampledNearKeySets, &mSampledNormalizedSquaredLengthCache);
         if (isGeometric) {
             // updates probabilities of skipping or mapping each key for all points.
             ProximityInfoStateUtils::updateAlignPointProbabilities(
                     mMaxPointToKeyLength, mProximityInfo->getMostCommonKeyWidth(),
                     mProximityInfo->getKeyCount(), lastSavedInputSize, mSampledInputSize,
                     &mSampledInputXs, &mSampledInputYs, &mSpeedRates, &mSampledLengthCache,
-                    &mSampledNormalizedSquaredLengthCache, mProximityInfo, &mCharProbabilities);
+                    &mSampledNormalizedSquaredLengthCache, &mSampledNearKeySets,
+                    &mCharProbabilities);
             ProximityInfoStateUtils::updateSampledSearchKeySets(mProximityInfo,
                     mSampledInputSize, lastSavedInputSize, &mSampledLengthCache,
-                    &mCharProbabilities, &mSampledSearchKeySets,
+                    &mSampledNearKeySets, &mSampledSearchKeySets,
                     &mSampledSearchKeyVectors);
             mMostProbableStringProbability = ProximityInfoStateUtils::getMostProbableString(
                     mProximityInfo, mSampledInputSize, &mCharProbabilities, mMostProbableString);
@@ -171,7 +165,7 @@ float ProximityInfoState::getPointToKeyLength(
     const int keyId = mProximityInfo->getKeyIndexOf(codePoint);
     if (keyId != NOT_AN_INDEX) {
         const int index = inputIndex * mProximityInfo->getKeyCount() + keyId;
-        return std::min(mSampledNormalizedSquaredLengthCache[index], mMaxPointToKeyLength);
+        return min(mSampledNormalizedSquaredLengthCache[index], mMaxPointToKeyLength);
     }
     if (CharUtils::isIntentionalOmissionCodePoint(codePoint)) {
         return 0.0f;
@@ -255,14 +249,6 @@ ProximityType ProximityInfoState::getProximityTypeG(const int index, const int c
     if (!isUsed()) {
         return UNRELATED_CHAR;
     }
-    const int sampledSearchKeyVectorsSize = static_cast<int>(mSampledSearchKeyVectors.size());
-    if (index < 0 || index >= sampledSearchKeyVectorsSize) {
-        AKLOGE("getProximityTypeG() is called with an invalid index(%d). "
-                "mSampledSearchKeyVectors.size() = %d, codePoint = %x.", index,
-                sampledSearchKeyVectorsSize, codePoint);
-        ASSERT(false);
-        return UNRELATED_CHAR;
-    }
     const int lowerCodePoint = CharUtils::toLowerCase(codePoint);
     const int baseLowerCodePoint = CharUtils::toBaseCodePoint(lowerCodePoint);
     for (int i = 0; i < static_cast<int>(mSampledSearchKeyVectors[index].size()); ++i) {
@@ -285,7 +271,7 @@ float ProximityInfoState::getDirection(const int index0, const int index1) const
 }
 
 float ProximityInfoState::getMostProbableString(int *const codePointBuf) const {
-    memmove(codePointBuf, mMostProbableString, sizeof(mMostProbableString));
+    memcpy(codePointBuf, mMostProbableString, sizeof(mMostProbableString));
     return mMostProbableStringProbability;
 }
 
@@ -297,7 +283,7 @@ bool ProximityInfoState::hasSpaceProximity(const int index) const {
 // Returns a probability of mapping index to keyIndex.
 float ProximityInfoState::getProbability(const int index, const int keyIndex) const {
     ASSERT(0 <= index && index < mSampledInputSize);
-    std::unordered_map<int, float>::const_iterator it = mCharProbabilities[index].find(keyIndex);
+    hash_map_compat<int, float>::const_iterator it = mCharProbabilities[index].find(keyIndex);
     if (it != mCharProbabilities[index].end()) {
         return it->second;
     }

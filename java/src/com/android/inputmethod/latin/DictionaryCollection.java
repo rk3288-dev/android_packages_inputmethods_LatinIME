@@ -20,7 +20,7 @@ import android.util.Log;
 
 import com.android.inputmethod.keyboard.ProximityInfo;
 import com.android.inputmethod.latin.SuggestedWords.SuggestedWordInfo;
-import com.android.inputmethod.latin.settings.SettingsValuesForSuggestion;
+import com.android.inputmethod.latin.utils.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -36,52 +36,49 @@ public final class DictionaryCollection extends Dictionary {
 
     public DictionaryCollection(final String dictType) {
         super(dictType);
-        mDictionaries = new CopyOnWriteArrayList<>();
+        mDictionaries = CollectionUtils.newCopyOnWriteArrayList();
     }
 
     public DictionaryCollection(final String dictType, final Dictionary... dictionaries) {
         super(dictType);
         if (null == dictionaries) {
-            mDictionaries = new CopyOnWriteArrayList<>();
+            mDictionaries = CollectionUtils.newCopyOnWriteArrayList();
         } else {
-            mDictionaries = new CopyOnWriteArrayList<>(dictionaries);
+            mDictionaries = CollectionUtils.newCopyOnWriteArrayList(dictionaries);
             mDictionaries.removeAll(Collections.singleton(null));
         }
     }
 
     public DictionaryCollection(final String dictType, final Collection<Dictionary> dictionaries) {
         super(dictType);
-        mDictionaries = new CopyOnWriteArrayList<>(dictionaries);
+        mDictionaries = CollectionUtils.newCopyOnWriteArrayList(dictionaries);
         mDictionaries.removeAll(Collections.singleton(null));
     }
 
     @Override
     public ArrayList<SuggestedWordInfo> getSuggestions(final WordComposer composer,
-            final PrevWordsInfo prevWordsInfo, final ProximityInfo proximityInfo,
-            final SettingsValuesForSuggestion settingsValuesForSuggestion,
-            final int sessionId, final float[] inOutLanguageWeight) {
+            final String prevWord, final ProximityInfo proximityInfo,
+            final boolean blockOffensiveWords, final int[] additionalFeaturesOptions) {
         final CopyOnWriteArrayList<Dictionary> dictionaries = mDictionaries;
         if (dictionaries.isEmpty()) return null;
         // To avoid creating unnecessary objects, we get the list out of the first
         // dictionary and add the rest to it if not null, hence the get(0)
         ArrayList<SuggestedWordInfo> suggestions = dictionaries.get(0).getSuggestions(composer,
-                prevWordsInfo, proximityInfo, settingsValuesForSuggestion, sessionId,
-                inOutLanguageWeight);
-        if (null == suggestions) suggestions = new ArrayList<>();
+                prevWord, proximityInfo, blockOffensiveWords, additionalFeaturesOptions);
+        if (null == suggestions) suggestions = CollectionUtils.newArrayList();
         final int length = dictionaries.size();
         for (int i = 1; i < length; ++ i) {
             final ArrayList<SuggestedWordInfo> sugg = dictionaries.get(i).getSuggestions(composer,
-                    prevWordsInfo, proximityInfo, settingsValuesForSuggestion, sessionId,
-                    inOutLanguageWeight);
+                    prevWord, proximityInfo, blockOffensiveWords, additionalFeaturesOptions);
             if (null != sugg) suggestions.addAll(sugg);
         }
         return suggestions;
     }
 
     @Override
-    public boolean isInDictionary(final String word) {
+    public boolean isValidWord(final String word) {
         for (int i = mDictionaries.size() - 1; i >= 0; --i)
-            if (mDictionaries.get(i).isInDictionary(word)) return true;
+            if (mDictionaries.get(i).isValidWord(word)) return true;
         return false;
     }
 
@@ -90,17 +87,9 @@ public final class DictionaryCollection extends Dictionary {
         int maxFreq = -1;
         for (int i = mDictionaries.size() - 1; i >= 0; --i) {
             final int tempFreq = mDictionaries.get(i).getFrequency(word);
-            maxFreq = Math.max(tempFreq, maxFreq);
-        }
-        return maxFreq;
-    }
-
-    @Override
-    public int getMaxFrequencyOfExactMatches(final String word) {
-        int maxFreq = -1;
-        for (int i = mDictionaries.size() - 1; i >= 0; --i) {
-            final int tempFreq = mDictionaries.get(i).getMaxFrequencyOfExactMatches(word);
-            maxFreq = Math.max(tempFreq, maxFreq);
+            if (tempFreq >= maxFreq) {
+                maxFreq = tempFreq;
+            }
         }
         return maxFreq;
     }

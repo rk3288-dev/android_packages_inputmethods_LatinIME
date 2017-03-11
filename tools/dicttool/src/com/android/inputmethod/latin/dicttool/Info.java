@@ -19,8 +19,8 @@ package com.android.inputmethod.latin.dicttool;
 import com.android.inputmethod.latin.makedict.FormatSpec;
 import com.android.inputmethod.latin.makedict.FusionDictionary;
 import com.android.inputmethod.latin.makedict.FusionDictionary.PtNode;
-import com.android.inputmethod.latin.makedict.WeightedString;
-import com.android.inputmethod.latin.makedict.WordProperty;
+import com.android.inputmethod.latin.makedict.FusionDictionary.WeightedString;
+import com.android.inputmethod.latin.makedict.Word;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -43,16 +43,15 @@ public class Info extends Dicttool.Command {
         int bigramCount = 0;
         int shortcutCount = 0;
         int whitelistCount = 0;
-        for (final WordProperty wordProperty : dict) {
+        for (final Word w : dict) {
             ++wordCount;
-            if (null != wordProperty.mBigrams) {
-                bigramCount += wordProperty.mBigrams.size();
+            if (null != w.mBigrams) {
+                bigramCount += w.mBigrams.size();
             }
-            if (null != wordProperty.mShortcutTargets) {
-                shortcutCount += wordProperty.mShortcutTargets.size();
-                for (WeightedString shortcutTarget : wordProperty.mShortcutTargets) {
-                    if (FormatSpec.SHORTCUT_WHITELIST_FREQUENCY
-                            == shortcutTarget.getProbability()) {
+            if (null != w.mShortcutTargets) {
+                shortcutCount += w.mShortcutTargets.size();
+                for (WeightedString shortcutTarget : w.mShortcutTargets) {
+                    if (FormatSpec.SHORTCUT_WHITELIST_FREQUENCY == shortcutTarget.mFrequency) {
                         ++whitelistCount;
                     }
                 }
@@ -72,7 +71,7 @@ public class Info extends Dicttool.Command {
             return;
         }
         System.out.println("Word: " + word);
-        System.out.println("  Freq: " + ptNode.getProbability());
+        System.out.println("  Freq: " + ptNode.getFrequency());
         if (ptNode.getIsNotAWord()) {
             System.out.println("  Is not a word");
         }
@@ -85,9 +84,8 @@ public class Info extends Dicttool.Command {
         } else {
             for (final WeightedString shortcutTarget : shortcutTargets) {
                 System.out.println("  Shortcut target: " + shortcutTarget.mWord + " ("
-                        + (FormatSpec.SHORTCUT_WHITELIST_FREQUENCY
-                                == shortcutTarget.getProbability() ?
-                                        "whitelist" : shortcutTarget.getProbability()) + ")");
+                        + (FormatSpec.SHORTCUT_WHITELIST_FREQUENCY == shortcutTarget.mFrequency
+                                ? "whitelist" : shortcutTarget.mFrequency) + ")");
             }
         }
         final ArrayList<WeightedString> bigrams = ptNode.getBigrams();
@@ -95,8 +93,7 @@ public class Info extends Dicttool.Command {
             System.out.println("  No bigrams");
         } else {
             for (final WeightedString bigram : bigrams) {
-                System.out.println(
-                        "  Bigram: " + bigram.mWord + " (" + bigram.getProbability() + ")");
+                System.out.println("  Bigram: " + bigram.mWord + " (" + bigram.mFrequency + ")");
             }
         }
     }

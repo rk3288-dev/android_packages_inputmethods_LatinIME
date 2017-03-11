@@ -24,7 +24,8 @@ DicNode::DicNode(const DicNode &dicNode)
           mProfiler(dicNode.mProfiler),
 #endif
           mDicNodeProperties(dicNode.mDicNodeProperties), mDicNodeState(dicNode.mDicNodeState),
-          mIsCachedForNextSuggestion(dicNode.mIsCachedForNextSuggestion) {
+          mIsCachedForNextSuggestion(dicNode.mIsCachedForNextSuggestion), mIsUsed(dicNode.mIsUsed),
+          mReleaseListener(0) {
     /* empty */
 }
 
@@ -35,6 +36,8 @@ DicNode &DicNode::operator=(const DicNode &dicNode) {
     mDicNodeProperties = dicNode.mDicNodeProperties;
     mDicNodeState = dicNode.mDicNodeState;
     mIsCachedForNextSuggestion = dicNode.mIsCachedForNextSuggestion;
+    mIsUsed = dicNode.mIsUsed;
+    mReleaseListener = dicNode.mReleaseListener;
     return *this;
 }
 

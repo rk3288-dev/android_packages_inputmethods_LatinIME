@@ -17,23 +17,18 @@
 #ifndef LATINIME_DICTIONARY_H
 #define LATINIME_DICTIONARY_H
 
-#include <memory>
+#include <stdint.h>
 
 #include "defines.h"
 #include "jni.h"
-#include "suggest/core/dictionary/ngram_listener.h"
-#include "suggest/core/dictionary/property/word_property.h"
-#include "suggest/core/policy/dictionary_header_structure_policy.h"
-#include "suggest/core/policy/dictionary_structure_with_buffer_policy.h"
-#include "suggest/core/suggest_interface.h"
 
 namespace latinime {
 
+class BigramDictionary;
 class DictionaryStructureWithBufferPolicy;
 class DicTraverseSession;
-class PrevWordsInfo;
 class ProximityInfo;
-class SuggestionResults;
+class SuggestInterface;
 class SuggestOptions;
 
 class Dictionary {
@@ -57,85 +52,55 @@ class Dictionary {
     static const int KIND_MASK_FLAGS = 0xFFFFFF00; // Mask to get the flags
     static const int KIND_FLAG_POSSIBLY_OFFENSIVE = 0x80000000;
     static const int KIND_FLAG_EXACT_MATCH = 0x40000000;
-    static const int KIND_FLAG_EXACT_MATCH_WITH_INTENTIONAL_OMISSION = 0x20000000;
 
-    Dictionary(JNIEnv *env, DictionaryStructureWithBufferPolicy::StructurePolicyPtr
-            dictionaryStructureWithBufferPolicy);
+    Dictionary(JNIEnv *env,
+            DictionaryStructureWithBufferPolicy *const dictionaryStructureWithBufferPoilcy);
 
-    void getSuggestions(ProximityInfo *proximityInfo, DicTraverseSession *traverseSession,
+    int getSuggestions(ProximityInfo *proximityInfo, DicTraverseSession *traverseSession,
             int *xcoordinates, int *ycoordinates, int *times, int *pointerIds, int *inputCodePoints,
-            int inputSize, const PrevWordsInfo *const prevWordsInfo,
-            const SuggestOptions *const suggestOptions, const float languageWeight,
-            SuggestionResults *const outSuggestionResults) const;
+            int inputSize, int *prevWordCodePoints, int prevWordLength, int commitPoint,
+            const SuggestOptions *const suggestOptions, int *outWords, int *frequencies,
+            int *spaceIndices, int *outputTypes, int *outputAutoCommitFirstWordConfidence) const;
 
-    void getPredictions(const PrevWordsInfo *const prevWordsInfo,
-            SuggestionResults *const outSuggestionResults) const;
+    int getBigrams(const int *word, int length, int *outWords, int *frequencies,
+            int *outputTypes) const;
 
     int getProbability(const int *word, int length) const;
 
-    int getMaxProbabilityOfExactMatches(const int *word, int length) const;
+    int getBigramProbability(const int *word0, int length0, const int *word1, int length1) const;
 
-    int getNgramProbability(const PrevWordsInfo *const prevWordsInfo,
-            const int *word, int length) const;
+    void addUnigramWord(const int *const word, const int length, const int probability);
 
-    bool addUnigramEntry(const int *const codePoints, const int codePointCount,
-            const UnigramProperty *const unigramProperty);
+    void addBigramWords(const int *const word0, const int length0, const int *const word1,
+            const int length1, const int probability);
 
-    bool removeUnigramEntry(const int *const codePoints, const int codePointCount);
+    void removeBigramWords(const int *const word0, const int length0, const int *const word1,
+            const int length1);
 
-    bool addNgramEntry(const PrevWordsInfo *const prevWordsInfo,
-            const BigramProperty *const bigramProperty);
+    void flush(const char *const filePath);
 
-    bool removeNgramEntry(const PrevWordsInfo *const prevWordsInfo, const int *const word,
-            const int length);
-
-    bool flush(const char *const filePath);
-
-    bool flushWithGC(const char *const filePath);
+    void flushWithGC(const char *const filePath);
 
     bool needsToRunGC(const bool mindsBlockByGC);
 
-    void getProperty(const char *const query, const int queryLength, char *const outResult,
+    void getProperty(const char *const query, char *const outResult,
             const int maxResultLength);
 
-    const WordProperty getWordProperty(const int *const codePoints, const int codePointCount);
-
-    // Method to iterate all words in the dictionary.
-    // The returned token has to be used to get the next word. If token is 0, this method newly
-    // starts iterating the dictionary.
-    int getNextWordAndNextToken(const int token, int *const outCodePoints,
-            int *const outCodePointCount);
-
     const DictionaryStructureWithBufferPolicy *getDictionaryStructurePolicy() const {
-        return mDictionaryStructureWithBufferPolicy.get();
+        return mDictionaryStructureWithBufferPolicy;
     }
+
+    virtual ~Dictionary();
 
  private:
     DISALLOW_IMPLICIT_CONSTRUCTORS(Dictionary);
 
-    typedef std::unique_ptr<SuggestInterface> SuggestInterfacePtr;
-
-    class NgramListenerForPrediction : public NgramListener {
-     public:
-        NgramListenerForPrediction(const PrevWordsInfo *const prevWordsInfo,
-                SuggestionResults *const suggestionResults,
-                const DictionaryStructureWithBufferPolicy *const dictStructurePolicy);
-        virtual void onVisitEntry(const int ngramProbability, const int targetPtNodePos);
-
-     private:
-        DISALLOW_IMPLICIT_CONSTRUCTORS(NgramListenerForPrediction);
-
-        const PrevWordsInfo *const mPrevWordsInfo;
-        SuggestionResults *const mSuggestionResults;
-        const DictionaryStructureWithBufferPolicy *const mDictStructurePolicy;
-    };
-
     static const int HEADER_ATTRIBUTE_BUFFER_SIZE;
 
-    const DictionaryStructureWithBufferPolicy::StructurePolicyPtr
-            mDictionaryStructureWithBufferPolicy;
-    const SuggestInterfacePtr mGestureSuggest;
-    const SuggestInterfacePtr mTypingSuggest;
+    DictionaryStructureWithBufferPolicy *const mDictionaryStructureWithBufferPolicy;
+    const BigramDictionary *const mBigramDictionary;
+    const SuggestInterface *const mGestureSuggest;
+    const SuggestInterface *const mTypingSuggest;
 
     void logDictionaryInfo(JNIEnv *const env) const;
 };

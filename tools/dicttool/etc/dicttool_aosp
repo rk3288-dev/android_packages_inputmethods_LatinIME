@@ -38,8 +38,13 @@ jarfile=dicttool_aosp.jar
 frameworkdir="$progdir"
 if [ ! -r "$frameworkdir/$jarfile" ]
 then
+    frameworkdir=`dirname "$progdir"`/tools/lib
+    libdir=`dirname "$progdir"`/tools/lib
+fi
+if [ ! -r "$frameworkdir/$jarfile" ]
+then
     frameworkdir=`dirname "$progdir"`/framework
-    libdir=`dirname "$progdir"`/lib64
+    libdir=`dirname "$progdir"`/lib
 fi
 if [ ! -r "$frameworkdir/$jarfile" ]
 then

@@ -17,11 +17,12 @@
 package com.android.inputmethod.keyboard.internal;
 
 import com.android.inputmethod.keyboard.Key;
+import com.android.inputmethod.latin.utils.CollectionUtils;
 
 import java.util.HashMap;
 
 public final class KeysCache {
-    private final HashMap<Key, Key> mMap = new HashMap<>();
+    private final HashMap<Key, Key> mMap = CollectionUtils.newHashMap();
 
     public void clear() {
         mMap.clear();

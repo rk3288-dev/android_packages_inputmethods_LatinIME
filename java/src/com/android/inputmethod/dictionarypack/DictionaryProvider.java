@@ -89,13 +89,10 @@ public final class DictionaryProvider extends ContentProvider {
     private static final class WordListInfo {
         public final String mId;
         public final String mLocale;
-        public final String mRawChecksum;
         public final int mMatchLevel;
-        public WordListInfo(final String id, final String locale, final String rawChecksum,
-                final int matchLevel) {
+        public WordListInfo(final String id, final String locale, final int matchLevel) {
             mId = id;
             mLocale = locale;
-            mRawChecksum = rawChecksum;
             mMatchLevel = matchLevel;
         }
     }
@@ -109,8 +106,7 @@ public final class DictionaryProvider extends ContentProvider {
     private static final class ResourcePathCursor extends AbstractCursor {
 
         // Column names for the cursor returned by this content provider.
-        static private final String[] columnNames = { MetadataDbHelper.WORDLISTID_COLUMN,
-                MetadataDbHelper.LOCALE_COLUMN, MetadataDbHelper.RAW_CHECKSUM_COLUMN };
+        static private final String[] columnNames = { "id", "locale" };
 
         // The list of word lists served by this provider that match the client request.
         final WordListInfo[] mWordLists;
@@ -145,7 +141,6 @@ public final class DictionaryProvider extends ContentProvider {
             switch (column) {
                 case 0: return mWordLists[mPos].mId;
                 case 1: return mWordLists[mPos].mLocale;
-                case 2: return mWordLists[mPos].mRawChecksum;
                 default : return null;
             }
         }
@@ -355,15 +350,12 @@ public final class DictionaryProvider extends ContentProvider {
                         clientId);
         if (null == results) {
             return Collections.<WordListInfo>emptyList();
-        }
-        try {
-            final HashMap<String, WordListInfo> dicts = new HashMap<>();
+        } else {
+            final HashMap<String, WordListInfo> dicts = new HashMap<String, WordListInfo>();
             final int idIndex = results.getColumnIndex(MetadataDbHelper.WORDLISTID_COLUMN);
             final int localeIndex = results.getColumnIndex(MetadataDbHelper.LOCALE_COLUMN);
             final int localFileNameIndex =
                     results.getColumnIndex(MetadataDbHelper.LOCAL_FILENAME_COLUMN);
-            final int rawChecksumIndex =
-                    results.getColumnIndex(MetadataDbHelper.RAW_CHECKSUM_COLUMN);
             final int statusIndex = results.getColumnIndex(MetadataDbHelper.STATUS_COLUMN);
             if (results.moveToFirst()) {
                 do {
@@ -386,7 +378,6 @@ public final class DictionaryProvider extends ContentProvider {
                     }
                     final String wordListLocale = results.getString(localeIndex);
                     final String wordListLocalFilename = results.getString(localFileNameIndex);
-                    final String wordListRawChecksum = results.getString(rawChecksumIndex);
                     final int wordListStatus = results.getInt(statusIndex);
                     // Test the requested locale against this wordlist locale. The requested locale
                     // has to either match exactly or be more specific than the dictionary - a
@@ -420,14 +411,13 @@ public final class DictionaryProvider extends ContentProvider {
                     final WordListInfo currentBestMatch = dicts.get(wordListCategory);
                     if (null == currentBestMatch
                             || currentBestMatch.mMatchLevel < matchLevel) {
-                        dicts.put(wordListCategory, new WordListInfo(wordListId, wordListLocale,
-                                wordListRawChecksum, matchLevel));
+                        dicts.put(wordListCategory,
+                                new WordListInfo(wordListId, wordListLocale, matchLevel));
                     }
                 } while (results.moveToNext());
             }
-            return Collections.unmodifiableCollection(dicts.values());
-        } finally {
             results.close();
+            return Collections.unmodifiableCollection(dicts.values());
         }
     }
 
